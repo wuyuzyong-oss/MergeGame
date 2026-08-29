@@ -1,0 +1,191 @@
+{
+    "items": [
+        {
+            "itemId": "backpack_generator",
+            "chainId": "backpack_generator",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1,
+            "isGenerator": true
+        },
+        {
+            "itemId": "test_item_lv1",
+            "chainId": "test_chain",
+            "level": 1,
+            "nextItemId": "test_item_lv2",
+            "maxLevel": 2
+        },
+        {
+            "itemId": "test_item_lv2",
+            "chainId": "test_chain",
+            "level": 2,
+            "nextItemId": null,
+            "maxLevel": 2
+        },
+        {
+            "itemId": "towel_lv1",
+            "chainId": "towel",
+            "level": 1,
+            "nextItemId": "towel_lv2",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "towel_lv2",
+            "chainId": "towel",
+            "level": 2,
+            "nextItemId": "towel_lv3",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "towel_lv3",
+            "chainId": "towel",
+            "level": 3,
+            "nextItemId": null,
+            "maxLevel": 3
+        },
+        {
+            "itemId": "pocket_mirror_lv1",
+            "chainId": "pocket_mirror",
+            "level": 1,
+            "nextItemId": "pocket_mirror_lv2",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "pocket_mirror_lv2",
+            "chainId": "pocket_mirror",
+            "level": 2,
+            "nextItemId": "pocket_mirror_lv3",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "pocket_mirror_lv3",
+            "chainId": "pocket_mirror",
+            "level": 3,
+            "nextItemId": null,
+            "maxLevel": 3
+        },
+        {
+            "itemId": "glasses_lv1",
+            "chainId": "glasses",
+            "level": 1,
+            "nextItemId": "glasses_lv2",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "glasses_lv2",
+            "chainId": "glasses",
+            "level": 2,
+            "nextItemId": "glasses_lv3",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "glasses_lv3",
+            "chainId": "glasses",
+            "level": 3,
+            "nextItemId": null,
+            "maxLevel": 3
+        },
+        {
+            "itemId": "socks_lv1",
+            "chainId": "socks",
+            "level": 1,
+            "nextItemId": "socks_lv2",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "socks_lv2",
+            "chainId": "socks",
+            "level": 2,
+            "nextItemId": "socks_lv3",
+            "maxLevel": 3
+        },
+        {
+            "itemId": "socks_lv3",
+            "chainId": "socks",
+            "level": 3,
+            "nextItemId": null,
+            "maxLevel": 3
+        },
+        {
+            "itemId": "vegetable_basket",
+            "chainId": "vegetable_basket",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1,
+            "isGenerator": true
+        },
+        {
+            "itemId": "tent",
+            "chainId": "tent",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1,
+            "isGenerator": true
+        },
+        {
+            "itemId": "blueberry_generator",
+            "chainId": "blueberry_generator",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1,
+            "isGenerator": true
+        },
+        {
+            "itemId": "jam_generator",
+            "chainId": "jam_generator",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1,
+            "isGenerator": true
+        },
+        {
+            "itemId": "onion_lv1",
+            "chainId": "onion",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "mushroom_lv1",
+            "chainId": "mushroom",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "bacon_lv1",
+            "chainId": "bacon",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "eye_mask_lv1",
+            "chainId": "eye_mask",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "sleeping_bag_lv1",
+            "chainId": "sleeping_bag",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "blueberry_lv1",
+            "chainId": "blueberry",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        },
+        {
+            "itemId": "jam_lv1",
+            "chainId": "jam",
+            "level": 1,
+            "nextItemId": null,
+            "maxLevel": 1
+        }
+    ]
+}

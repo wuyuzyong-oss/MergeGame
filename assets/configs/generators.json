@@ -1,0 +1,46 @@
+{
+    "generators": [
+        {
+            "id": "backpack_generator",
+            "cost": 1,
+            "outputs": [
+                {"itemId": "towel_lv1", "rate": 50},
+                {"itemId": "pocket_mirror_lv1", "rate": 30},
+                {"itemId": "glasses_lv1", "rate": 15},
+                {"itemId": "socks_lv1", "rate": 5}
+            ]
+        },
+        {
+            "id": "vegetable_basket",
+            "cost": 1,
+            "outputs": [
+                {"itemId": "onion_lv1", "rate": 65},
+                {"itemId": "mushroom_lv1", "rate": 20},
+                {"itemId": "bacon_lv1", "rate": 15}
+            ]
+        },
+        {
+            "id": "tent",
+            "cost": 1,
+            "outputs": [
+                {"itemId": "eye_mask_lv1", "rate": 60},
+                {"itemId": "sleeping_bag_lv1", "rate": 40}
+            ]
+        },
+        {
+            "id": "blueberry_generator",
+            "cost": 1,
+            "life": 12,
+            "outputs": [
+                {"itemId": "blueberry_lv1", "rate": 100}
+            ]
+        },
+        {
+            "id": "jam_generator",
+            "cost": 1,
+            "outputs": [
+                {"itemId": "jam_lv1", "rate": 100}
+            ]
+        }
+    ]
+}
