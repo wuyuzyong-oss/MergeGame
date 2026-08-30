@@ -25,9 +25,7 @@ export class BoardManager {
     public initialize(boardRoot: Node): void {
         this._boardRoot = boardRoot;
         this.createCells();
-        this.createGraphics();
-        this.drawBoard();
-
+        // 棋盘格子由背景图显示，不再用 Graphics 绘制
         console.log('BoardManager initialized');
         console.log(`Board created: ${BoardManager.COLS} x ${BoardManager.ROWS}`);
         console.log(`Cell count: ${BoardManager.TOTAL_CELLS}`);

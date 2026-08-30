@@ -1,9 +1,10 @@
-import { _decorator, Component, Node, Prefab, Vec3 } from 'cc';
+import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, assetManager } from 'cc';
 import { BoardManager } from './BoardManager';
 import { ItemManager } from './ItemManager';
 import { OrderManager } from './order/OrderManager';
 import { ResourceManager } from './resource/ResourceManager';
 import { EventManager } from './core/EventManager';
+import { setGameContext } from './core/GameContext';
 // 注意：不直接 import AccountPanel / OrderPanel，避免循环依赖
 // GameManager → OrderPanel → OrderManager → GameManager
 // 改用 @ccclass 注册名 + addComponent(字符串) 动态挂载
@@ -37,12 +38,16 @@ export class GameManager extends Component {
 
     @property({ type: Prefab })
     public itemPrefab: Prefab | null = null;
+
+    @property({ type: ImageAsset })
+    public bgTexture: ImageAsset | null = null;
     // ====================================
 
     private _boardManager: BoardManager | null = null;
 
     onLoad() {
         GameManager._instance = this;
+        setGameContext(this);
         this.initialize();
         this.registerResourceEvents();
         this.exposeTestAPIs();
@@ -69,6 +74,9 @@ export class GameManager extends Component {
             return;
         }
 
+        // 加载背景图
+        this.setupBackground();
+
         // 将 BoardPanel 节点传给 BoardManager，棋盘全部渲染到此节点下
         this._boardManager = new BoardManager();
         this._boardManager.initialize(this.boardPanel);
@@ -92,6 +100,64 @@ export class GameManager extends Component {
                 console.log(`[GameManager] Order ${result.order.id}: ${result.status}, ${result.progress}`);
             }
         }, 0.5);
+    }
+
+    /**
+     * 创建全屏背景图节点，置于 Canvas 最底层
+     * 优先使用编辑器属性 bgTexture，否则尝试动态加载
+     */
+    private setupBackground(): void {
+        const canvas = this.node;
+
+        // 创建背景节点
+        const bgNode = new Node('Background');
+        const bgTransform = bgNode.addComponent(UITransform);
+        bgTransform.setContentSize(1080, 1920);
+        bgTransform.setAnchorPoint(0.5, 0.5);
+
+        const bgSprite = bgNode.addComponent(Sprite);
+        bgSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        bgSprite.type = Sprite.Type.SIMPLE;
+
+        bgNode.setParent(canvas);
+        bgNode.setPosition(new Vec3(0, 0, 0));
+        bgNode.setSiblingIndex(0); // 置于最底层
+
+        if (this.bgTexture) {
+            // 使用编辑器拖拽赋值的纹理
+            const tex = new Texture2D();
+            tex.image = this.bgTexture;
+            const frame = new SpriteFrame();
+            frame.texture = tex;
+            bgSprite.spriteFrame = frame;
+            console.log('[GameManager] Background loaded from editor property');
+        } else {
+            // 尝试动态加载
+            this.loadBackgroundImage(bgSprite);
+        }
+    }
+
+    /**
+     * 动态加载背景图（备用方案）
+     */
+    private loadBackgroundImage(bgSprite: Sprite): void {
+        assetManager.loadRemote(
+            'textures/background/game_background',
+            { ext: '.png' },
+            (err, imageAsset: ImageAsset) => {
+                if (err) {
+                    console.warn('[GameManager] Background load failed:', err.message);
+                    console.warn('[GameManager] Please drag game_background.png to GameManager.bgTexture in editor');
+                    return;
+                }
+                const tex = new Texture2D();
+                tex.image = imageAsset;
+                const frame = new SpriteFrame();
+                frame.texture = tex;
+                bgSprite.spriteFrame = frame;
+                console.log('[GameManager] Background loaded dynamically');
+            }
+        );
     }
 
     /**

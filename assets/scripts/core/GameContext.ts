@@ -1,4 +1,4 @@
-import { director, Node } from 'cc';
+import { Node } from 'cc';
 import type { BoardManager } from '../BoardManager';
 
 /**
@@ -15,12 +15,21 @@ export interface GameContextShape {
     readonly orderPanel: Node | null;
 }
 
+/** 全局游戏上下文引用，由 GameManager 在 onLoad 时注册 */
+let _gameContext: GameContextShape | null = null;
+
+/**
+ * 注册游戏上下文
+ * 由 GameManager.onLoad() 调用，将自身注册为全局可访问的上下文
+ */
+export function setGameContext(ctx: GameContextShape): void {
+    _gameContext = ctx;
+}
+
 /**
  * 运行时获取 GameManager 组件引用
  * 所有需要访问 GameManager 的模块统一使用此方法，避免静态 import 产生循环依赖
  */
 export function getGameContext(): GameContextShape | null {
-    const scene = director.getScene();
-    if (!scene) return null;
-    return (scene.getComponent('GameManager') as unknown as GameContextShape) || null;
+    return _gameContext;
 }

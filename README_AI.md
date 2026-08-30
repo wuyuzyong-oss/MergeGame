@@ -42,6 +42,8 @@ Merge Board Game（暂定）
 
 - 广告
 
+- 本地存档（刷新页面即重新开始）
+
   ---
 
 1. # 技术方案
@@ -965,9 +967,7 @@ life -1
    
    ├── EffectManager.ts
    
-   ├── AudioManager.ts
-   
-   └── SaveManager.ts
+   └── AudioManager.ts
    ```
 
    ---
@@ -985,8 +985,6 @@ life -1
    5. 棋盘运行时生成
 
    6. 动画统一管理
-
-   7. 所有状态可保存
 
       ---
 
@@ -1021,8 +1019,6 @@ life -1
 6. 订单系统
 
 7. 动画效果
-
-8. 本地存档
 
    
 
