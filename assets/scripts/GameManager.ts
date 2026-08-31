@@ -82,9 +82,13 @@ export class GameManager extends Component {
         this.createBackground();
         this.loadBackground();
 
+        // 创建 DebugBoard 节点（Canvas 子节点，位于 Background 之上、BoardPanel 之下）
+        const debugBoard = this.createDebugBoard();
+
         // 将 BoardPanel 节点传给 BoardManager，棋盘全部渲染到此节点下
+        // debugBoard 作为 Debug 棋盘的视觉节点，与 BoardPanel 分离
         this._boardManager = new BoardManager();
-        this._boardManager.initialize(this.boardPanel);
+        this._boardManager.initialize(this.boardPanel, debugBoard);
 
         // 初始化物品管理器（传入 BoardManager，避免循环依赖）
         ItemManager.instance.init(this.itemPrefab, this.boardPanel, this._boardManager);
@@ -135,9 +139,8 @@ export class GameManager extends Component {
      *
      * Canvas
      * ├── Background        ← 1080×1920 背景 PNG
-     * ├── BoardPanel
-     * │   ├── DebugBoard (Graphics 半透明辅助网格)
-     * │   └── Item Nodes (发射器/物品)
+     * ├── DebugBoard        ← 半透明 Graphics 辅助网格
+     * ├── BoardPanel        ← 发射器 / 物品节点
      * ├── AccountPanel
      * ├── OrderPanel
      * └── EffectLayer
@@ -155,6 +158,24 @@ export class GameManager extends Component {
         bgNode.setParent(this.node); // Canvas 节点
         bgNode.setPosition(new Vec3(0, 0, 0));
         bgNode.setSiblingIndex(0); // 最底层
+    }
+
+    /**
+     * 创建 DebugBoard 节点（Canvas 子节点）
+     * 位于 Background 之上、BoardPanel 之下
+     * BoardManager 的 Graphics 辅助网格会画到这个节点上
+     */
+    private createDebugBoard(): Node {
+        const debugNode = new Node('DebugBoard');
+        const transform = debugNode.addComponent(UITransform);
+        // DebugBoard 尺寸与棋盘一致，位置与 BoardPanel 相同
+        transform.setContentSize(620, 800);
+        transform.setAnchorPoint(0.5, 0.5);
+
+        debugNode.setParent(this.node); // Canvas 节点
+        debugNode.setPosition(new Vec3(0, 0, 0)); // 与 BoardPanel 同位置
+        // Background 在 siblingIndex=0，DebugBoard 自然排在后面
+        return debugNode;
     }
 
     /**

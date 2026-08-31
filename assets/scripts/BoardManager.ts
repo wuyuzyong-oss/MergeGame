@@ -26,6 +26,7 @@ export class BoardManager {
     // ======================================
 
     private _boardRoot: Node | null = null;
+    private _debugRoot: Node | null = null;
     private _graphics: Graphics | null = null;
     private _cells: Cell[] = [];
 
@@ -33,8 +34,14 @@ export class BoardManager {
         // BoardManager 是纯 TypeScript 类，不继承 Component
     }
 
-    public initialize(boardRoot: Node): void {
+    /**
+     * @param boardRoot  棋盘逻辑根节点（物品挂到此节点下）
+     * @param debugRoot  可选，Debug 棋盘视觉节点（Graphics 画到此节点上）
+     *                   如果不传，则使用 boardRoot
+     */
+    public initialize(boardRoot: Node, debugRoot?: Node): void {
         this._boardRoot = boardRoot;
+        this._debugRoot = debugRoot ?? boardRoot;
         this.createCells();
         this.drawDebugBoard();
         console.log('BoardManager initialized');
@@ -171,13 +178,13 @@ export class BoardManager {
      * 通过 SHOW_DEBUG_BOARD / DEBUG_ALPHA / BOARD_OFFSET_X / BOARD_OFFSET_Y 调节
      */
     private drawDebugBoard(): void {
-        if (!this._boardRoot) return;
+        if (!this._debugRoot) return;
         if (!BoardManager.SHOW_DEBUG_BOARD) {
             console.log('[BoardManager] Debug board hidden (SHOW_DEBUG_BOARD=false)');
             return;
         }
 
-        this._graphics = this._boardRoot.addComponent(Graphics);
+        this._graphics = this._debugRoot.addComponent(Graphics);
 
         const ox = BoardManager.BOARD_OFFSET_X;
         const oy = BoardManager.BOARD_OFFSET_Y;
