@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Widget, Camera, director } from 'cc';
+import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Widget } from 'cc';
 import { BoardManager } from './BoardManager';
 import { ItemManager } from './ItemManager';
 import { OrderManager } from './order/OrderManager';
@@ -78,12 +78,9 @@ export class GameManager extends Component {
             return;
         }
 
-        // 创建背景图（Sprite 节点，Scene 层级，与 Canvas 平级）
+        // 创建背景图（Sprite 节点，Canvas 第一个子节点，最底层）
         this.createBackground();
         this.loadBackground();
-
-        // 修改主相机不清除颜色缓冲，让背景图透出来
-        this.fixCameraClearFlags();
 
         // 将 BoardPanel 节点传给 BoardManager，棋盘全部渲染到此节点下
         this._boardManager = new BoardManager();
@@ -134,8 +131,16 @@ export class GameManager extends Component {
 
     /**
      * 创建游戏背景 Sprite 节点（1080×1920 全屏）
-     * 放在 Scene 层级（与 Canvas 平级），不作为 Canvas 子节点
-     * 因为 Sprite 作为 Canvas 子节点会阻塞其他子节点的渲染
+     * 作为 Canvas 的第一个子节点，渲染在最底层
+     *
+     * Canvas
+     * ├── Background        ← 1080×1920 背景 PNG
+     * ├── BoardPanel
+     * │   ├── DebugBoard (Graphics 半透明辅助网格)
+     * │   └── Item Nodes (发射器/物品)
+     * ├── AccountPanel
+     * ├── OrderPanel
+     * └── EffectLayer
      */
     private createBackground(): void {
         const bgNode = new Node('Background');
@@ -147,15 +152,9 @@ export class GameManager extends Component {
         this._bgSprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this._bgSprite.type = Sprite.Type.SIMPLE;
 
-        // 添加到 Scene 层级（与 Canvas 平级）
-        const scene = director.getScene();
-        if (scene) {
-            bgNode.setParent(scene);
-            // Canvas 世界坐标为 (540, 960, 0)，背景对齐到同一位置
-            bgNode.setPosition(new Vec3(540, 960, 0));
-            bgNode.setSiblingIndex(0); // 在 Canvas 之前渲染
-            console.log('[GameManager] Background added to Scene level');
-        }
+        bgNode.setParent(this.node); // Canvas 节点
+        bgNode.setPosition(new Vec3(0, 0, 0));
+        bgNode.setSiblingIndex(0); // 最底层
     }
 
     /**
@@ -174,25 +173,6 @@ export class GameManager extends Component {
             console.log('[GameManager] Background texture applied');
         } else {
             console.warn('[GameManager] bgTexture not set. Drag game_background.png to GameManager.BgTexture in editor');
-        }
-    }
-
-    /**
-     * 修改主相机的清除标志
-     * 设置为只清除深度缓冲，不清除颜色缓冲
-     * 这样背景 Sprite（在 Scene 层级）的颜色会保留在帧缓冲中，
-     * Canvas 内容渲染在背景之上
-     */
-    private fixCameraClearFlags(): void {
-        const scene = director.getScene();
-        if (!scene) return;
-
-        const camera = scene.getComponentInChildren(Camera);
-        if (camera) {
-            // 只清除深度缓冲，不清除颜色缓冲
-            // 这样之前渲染的背景 Sprite 颜色会保留
-            camera.clearFlags = 2; // DEPTH only
-            console.log('[GameManager] Camera clear flags set to DEPTH only');
         }
     }
 

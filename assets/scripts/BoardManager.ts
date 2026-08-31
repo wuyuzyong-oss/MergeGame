@@ -14,6 +14,17 @@ export class BoardManager {
     private readonly CELL_SIZE = 80;
     private readonly CELL_SPACING = 10;
 
+    // ========= Debug 棋盘可调参数 =========
+    /** 是否显示半透明 Debug 棋盘（用于与背景图对齐） */
+    public static SHOW_DEBUG_BOARD = true;
+    /** Debug 棋盘填充透明度 (0-255) */
+    public static DEBUG_ALPHA = 80;
+    /** Debug 棋盘整体 X 偏移（像素） */
+    public static BOARD_OFFSET_X = 0;
+    /** Debug 棋盘整体 Y 偏移（像素） */
+    public static BOARD_OFFSET_Y = 0;
+    // ======================================
+
     private _boardRoot: Node | null = null;
     private _graphics: Graphics | null = null;
     private _cells: Cell[] = [];
@@ -25,7 +36,7 @@ export class BoardManager {
     public initialize(boardRoot: Node): void {
         this._boardRoot = boardRoot;
         this.createCells();
-        this.drawAll();
+        this.drawDebugBoard();
         console.log('BoardManager initialized');
         console.log(`Board created: ${BoardManager.COLS} x ${BoardManager.ROWS}`);
         console.log(`Cell count: ${BoardManager.TOTAL_CELLS}`);
@@ -155,18 +166,27 @@ export class BoardManager {
     }
 
     /**
-     * 绘制半透明辅助网格（用于对齐背景图，后期可移除）
-     * 背景图由 GameManager 的 Sprite 节点负责，这里只画网格线
+     * 绘制半透明 Debug 棋盘（开发辅助，不参与游戏逻辑）
+     * 用于与背景 PNG 中的棋盘格进行视觉对齐
+     * 通过 SHOW_DEBUG_BOARD / DEBUG_ALPHA / BOARD_OFFSET_X / BOARD_OFFSET_Y 调节
      */
-    private drawAll(): void {
+    private drawDebugBoard(): void {
         if (!this._boardRoot) return;
+        if (!BoardManager.SHOW_DEBUG_BOARD) {
+            console.log('[BoardManager] Debug board hidden (SHOW_DEBUG_BOARD=false)');
+            return;
+        }
 
         this._graphics = this._boardRoot.addComponent(Graphics);
 
+        const ox = BoardManager.BOARD_OFFSET_X;
+        const oy = BoardManager.BOARD_OFFSET_Y;
+        const alpha = BoardManager.DEBUG_ALPHA;
+
         const totalWidth = this.getTotalWidth();
         const totalHeight = this.getTotalHeight();
-        const startX = -totalWidth / 2;
-        const startY = totalHeight / 2;
+        const startX = -totalWidth / 2 + ox;
+        const startY = totalHeight / 2 + oy;
         const step = this.CELL_SIZE + this.CELL_SPACING;
 
         // 半透明白色填充
@@ -177,7 +197,7 @@ export class BoardManager {
                 this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
             }
         }
-        this._graphics.fillColor = new Color(255, 255, 255, 40);
+        this._graphics.fillColor = new Color(255, 255, 255, alpha);
         this._graphics.fill();
 
         // 红色描边
@@ -188,11 +208,11 @@ export class BoardManager {
                 this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
             }
         }
-        this._graphics.strokeColor = new Color(255, 80, 80, 200);
+        this._graphics.strokeColor = new Color(255, 80, 80, Math.min(alpha + 120, 255));
         this._graphics.lineWidth = 2;
         this._graphics.stroke();
 
-        console.log('[BoardManager] Grid drawn (single Graphics)');
+        console.log(`[BoardManager] Debug board drawn (alpha=${alpha}, offset=${ox},${oy})`);
     }
 
     private calculateCellLocalPosition(col: number, row: number): Vec2 {
