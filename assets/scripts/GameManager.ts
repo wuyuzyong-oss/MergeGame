@@ -78,12 +78,19 @@ export class GameManager extends Component {
             return;
         }
 
-        // 创建背景图（Sprite 节点，Canvas 第一个子节点，最底层）
-        this.createBackground();
+        // 查找 GameContent 统一容器（在编辑器中创建，背景 + Debug棋盘 + 物品棋盘，统一缩放）
+        const gameContent = this.getGameContent();
+        if (!gameContent) {
+            console.error('[GameManager] GameContent 节点未找到！请在编辑器 Canvas 下创建名为 GameContent 的空节点，并把 BoardPanel 拖进去');
+            return;
+        }
+
+        // 创建背景图（GameContent 第一个子节点，最底层）
+        this.createBackground(gameContent);
         this.loadBackground();
 
-        // 创建 DebugBoard 节点（Canvas 子节点，位于 Background 之上、BoardPanel 之下）
-        const debugBoard = this.createDebugBoard();
+        // 创建 DebugBoard 节点（GameContent 子节点，位于 Background 之上、BoardPanel 之下）
+        const debugBoard = this.createDebugBoard(gameContent);
 
         // 将 BoardPanel 节点传给 BoardManager，棋盘全部渲染到此节点下
         // debugBoard 作为 Debug 棋盘的视觉节点，与 BoardPanel 分离
@@ -134,29 +141,56 @@ export class GameManager extends Component {
     }
 
     /**
+     * 查找编辑器中创建的 GameContent 节点
+     * 需要在 Cocos Creator Hierarchy 中手动创建：
+     *
+     * Canvas
+     * ├── GameContent (1080×1920, anchor 0.5,0.5, position 0,0)
+     * │   ├── Background        ← 稍后由代码创建
+     * │   ├── DebugBoard        ← 稍后由代码创建
+     * │   └── BoardPanel        ← 编辑器中拖入
+     * ├── AccountPanel
+     * ├── OrderPanel
+     * └── EffectLayer
+     */
+    private getGameContent(): Node | null {
+        const canvas = this.getCanvasNode();
+        const gameContent = canvas.getChildByName('GameContent');
+        if (gameContent) {
+            console.log('[GameManager] GameContent found, children: ' + gameContent.children.length);
+        }
+        return gameContent;
+    }
+
+
+    /**
      * 获取真正的 Canvas 节点
      * GameManager 组件挂在 Canvas 的孙节点上（外面还有一层同名包裹节点），
      * this.node 并不是 Canvas，直接 setParent(this.node) 会让 Background
      * 在渲染遍历顺序中位于 BoardPanel 之后，从而把发射器盖住
      */
     private getCanvasNode(): Node {
-        const canvasComp = this.getComponentInParent(Canvas);
-        return canvasComp ? canvasComp.node : this.node;
+        let node: Node | null = this.node;
+        while (node) {
+            const canvas = node.getComponent(Canvas);
+            if (canvas) {
+                return node;
+            }
+            node = node.parent;
+        }
+        return this.node;
     }
 
     /**
      * 创建游戏背景 Sprite 节点（1080×1920 全屏）
-     * 作为 Canvas 的第一个子节点，渲染在最底层
+     * 作为 GameContent 的第一个子节点，渲染在最底层
      *
-     * Canvas
-     * ├── Background        ← 1080×1920 背景 PNG
+     * GameContent (1080×1920, 等比缩放)
+     * ├── Background        ← 背景 PNG，siblingIndex=0
      * ├── DebugBoard        ← 半透明 Graphics 辅助网格
-     * ├── BoardPanel        ← 发射器 / 物品节点
-     * ├── AccountPanel
-     * ├── OrderPanel
-     * └── EffectLayer
+     * └── BoardPanel        ← 发射器 / 物品节点
      */
-    private createBackground(): void {
+    private createBackground(gameContent: Node): void {
         const bgNode = new Node('Background');
         const transform = bgNode.addComponent(UITransform);
         transform.setContentSize(1080, 1920);
@@ -166,24 +200,24 @@ export class GameManager extends Component {
         this._bgSprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this._bgSprite.type = Sprite.Type.SIMPLE;
 
-        bgNode.setParent(this.getCanvasNode()); // 真正的 Canvas 节点
+        bgNode.setParent(gameContent); // GameContent 子节点
         bgNode.setPosition(new Vec3(0, 0, 0));
         bgNode.setSiblingIndex(0); // 最底层
     }
 
     /**
-     * 创建 DebugBoard 节点（Canvas 子节点）
+     * 创建 DebugBoard 节点（GameContent 子节点）
      * 位于 Background 之上、BoardPanel 之下
      * BoardManager 的 Graphics 辅助网格会画到这个节点上
      */
-    private createDebugBoard(): Node {
+    private createDebugBoard(gameContent: Node): Node {
         const debugNode = new Node('DebugBoard');
         const transform = debugNode.addComponent(UITransform);
         // DebugBoard 尺寸与棋盘一致，位置与 BoardPanel 相同
         transform.setContentSize(620, 800);
         transform.setAnchorPoint(0.5, 0.5);
 
-        debugNode.setParent(this.getCanvasNode()); // 真正的 Canvas 节点
+        debugNode.setParent(gameContent); // GameContent 子节点
         debugNode.setPosition(new Vec3(0, 0, 0)); // 与 BoardPanel 同位置
         // 插到 BoardPanel 之前，保证层级：Background < DebugBoard < BoardPanel
         if (this.boardPanel) {

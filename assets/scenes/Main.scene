@@ -23,7 +23,7 @@
     "_active": true,
     "_components": [],
     "_prefab": {
-      "__id__": 13
+      "__id__": 15
     },
     "_lpos": {
       "__type__": "cc.Vec3",
@@ -54,7 +54,7 @@
     },
     "autoReleaseAssets": false,
     "_globals": {
-      "__id__": 14
+      "__id__": 16
     },
     "_id": "4e7ac7b9-88f4-487f-9039-88ef3d764889"
   },
@@ -74,16 +74,16 @@
         "__id__": 5
       },
       {
-        "__id__": 7
+        "__id__": 9
       }
     ],
     "_active": true,
     "_components": [
       {
-        "__id__": 11
+        "__id__": 13
       },
       {
-        "__id__": 12
+        "__id__": 14
       }
     ],
     "_prefab": null,
@@ -209,17 +209,137 @@
   },
   {
     "__type__": "cc.Node",
-    "_name": "BoardPanel",
+    "_name": "GameManager",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
       "__id__": 2
     },
+    "_children": [
+      {
+        "__id__": 6
+      }
+    ],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 12
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "d36zB9VVZFAoH5oXisdTqz"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "GameManager",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 5
+    },
     "_children": [],
     "_active": true,
     "_components": [
       {
-        "__id__": 6
+        "__id__": 7
+      }
+    ],
+    "_prefab": null,
+    "_lpos": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_lrot": {
+      "__type__": "cc.Quat",
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "w": 1
+    },
+    "_lscale": {
+      "__type__": "cc.Vec3",
+      "x": 1,
+      "y": 1,
+      "z": 1
+    },
+    "_mobility": 0,
+    "_layer": 33554432,
+    "_euler": {
+      "__type__": "cc.Vec3",
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "_id": "35IkU5gi5PrJKDhhhon5YL"
+  },
+  {
+    "__type__": "b74d88BaURJkKRGGLvpBaqT",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 6
+    },
+    "_enabled": true,
+    "__prefab": null,
+    "accountPanel": null,
+    "orderPanel": null,
+    "boardPanel": {
+      "__id__": 8
+    },
+    "effectLayer": null,
+    "itemPrefab": {
+      "__uuid__": "848cc41b-6901-4bab-99c8-11f6baad068f",
+      "__expectedType__": "cc.Prefab"
+    },
+    "bgTexture": {
+      "__uuid__": "99f55413-ff24-4580-a0c5-15c2ef0db10c",
+      "__expectedType__": "cc.ImageAsset"
+    },
+    "_id": "f8gmXLh8hP+Jf1/9Bva3lm"
+  },
+  {
+    "__type__": "cc.Node",
+    "_name": "BoardPanel",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "_parent": {
+      "__id__": 9
+    },
+    "_children": [],
+    "_active": true,
+    "_components": [
+      {
+        "__id__": 11
       }
     ],
     "_prefab": null,
@@ -253,30 +373,8 @@
     "_id": "e2DPkfG5VNHYs2WUg8zW0N"
   },
   {
-    "__type__": "cc.UITransform",
-    "_name": "",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "node": {
-      "__id__": 5
-    },
-    "_enabled": true,
-    "__prefab": null,
-    "_contentSize": {
-      "__type__": "cc.Size",
-      "width": 620,
-      "height": 800
-    },
-    "_anchorPoint": {
-      "__type__": "cc.Vec2",
-      "x": 0.5,
-      "y": 0.5
-    },
-    "_id": "3b5KjtewtBoZNHhzy2Lmfa"
-  },
-  {
     "__type__": "cc.Node",
-    "_name": "GameManager",
+    "_name": "GameContent",
     "_objFlags": 0,
     "__editorExtras__": {},
     "_parent": {
@@ -321,55 +419,32 @@
       "y": 0,
       "z": 0
     },
-    "_id": "d36zB9VVZFAoH5oXisdTqz"
+    "_id": "f6ifDx2bJMiaeac2Vocqct"
   },
   {
-    "__type__": "cc.Node",
-    "_name": "GameManager",
+    "__type__": "cc.UITransform",
+    "_name": "",
     "_objFlags": 0,
     "__editorExtras__": {},
-    "_parent": {
-      "__id__": 7
+    "node": {
+      "__id__": 9
     },
-    "_children": [],
-    "_active": true,
-    "_components": [
-      {
-        "__id__": 9
-      }
-    ],
-    "_prefab": null,
-    "_lpos": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
+    "_enabled": true,
+    "__prefab": null,
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 1080,
+      "height": 1920
     },
-    "_lrot": {
-      "__type__": "cc.Quat",
-      "x": 0,
-      "y": 0,
-      "z": 0,
-      "w": 1
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
     },
-    "_lscale": {
-      "__type__": "cc.Vec3",
-      "x": 1,
-      "y": 1,
-      "z": 1
-    },
-    "_mobility": 0,
-    "_layer": 33554432,
-    "_euler": {
-      "__type__": "cc.Vec3",
-      "x": 0,
-      "y": 0,
-      "z": 0
-    },
-    "_id": "35IkU5gi5PrJKDhhhon5YL"
+    "_id": "54HoSowPJK5K2AdHTkzttE"
   },
   {
-    "__type__": "b74d88BaURJkKRGGLvpBaqT",
+    "__type__": "cc.UITransform",
     "_name": "",
     "_objFlags": 0,
     "__editorExtras__": {},
@@ -378,21 +453,17 @@
     },
     "_enabled": true,
     "__prefab": null,
-    "accountPanel": null,
-    "orderPanel": null,
-    "boardPanel": {
-      "__id__": 5
+    "_contentSize": {
+      "__type__": "cc.Size",
+      "width": 620,
+      "height": 800
     },
-    "effectLayer": null,
-    "itemPrefab": {
-      "__uuid__": "848cc41b-6901-4bab-99c8-11f6baad068f",
-      "__expectedType__": "cc.Prefab"
+    "_anchorPoint": {
+      "__type__": "cc.Vec2",
+      "x": 0.5,
+      "y": 0.5
     },
-    "bgTexture": {
-      "__uuid__": "99f55413-ff24-4580-a0c5-15c2ef0db10c",
-      "__expectedType__": "cc.ImageAsset"
-    },
-    "_id": "f8gmXLh8hP+Jf1/9Bva3lm"
+    "_id": "3b5KjtewtBoZNHhzy2Lmfa"
   },
   {
     "__type__": "cc.UITransform",
@@ -400,7 +471,7 @@
     "_objFlags": 0,
     "__editorExtras__": {},
     "node": {
-      "__id__": 7
+      "__id__": 5
     },
     "_enabled": true,
     "__prefab": null,
@@ -465,28 +536,28 @@
   {
     "__type__": "cc.SceneGlobals",
     "ambient": {
-      "__id__": 15
-    },
-    "shadows": {
-      "__id__": 16
-    },
-    "_skybox": {
       "__id__": 17
     },
-    "fog": {
+    "shadows": {
       "__id__": 18
     },
-    "octree": {
+    "_skybox": {
       "__id__": 19
     },
-    "skin": {
+    "fog": {
       "__id__": 20
     },
-    "lightProbeInfo": {
+    "octree": {
       "__id__": 21
     },
-    "postSettings": {
+    "skin": {
       "__id__": 22
+    },
+    "lightProbeInfo": {
+      "__id__": 23
+    },
+    "postSettings": {
+      "__id__": 24
     },
     "bakedWithStationaryMainLight": false,
     "bakedWithHighpLightmap": false
