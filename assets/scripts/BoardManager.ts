@@ -11,14 +11,16 @@ export class BoardManager {
     public static readonly ROWS = 9;
     public static readonly TOTAL_CELLS = BoardManager.COLS * BoardManager.ROWS;
 
-    private readonly CELL_SIZE = 80;
-    private readonly CELL_SPACING = 10;
+    // 棋盘格子大小
+    private readonly CELL_SIZE = 145;
+    // 棋盘格子间距 
+    private readonly CELL_SPACING = 0;
 
     // ========= Debug 棋盘可调参数 =========
     /** 是否显示半透明 Debug 棋盘（用于与背景图对齐） */
     public static SHOW_DEBUG_BOARD = true;
     /** Debug 棋盘填充透明度 (0-255) */
-    public static DEBUG_ALPHA = 80;
+    public static DEBUG_ALPHA = 10;
     /** Debug 棋盘整体 X 偏移（像素） */
     public static BOARD_OFFSET_X = 0;
     /** Debug 棋盘整体 Y 偏移（像素） */
@@ -196,30 +198,23 @@ export class BoardManager {
         const startY = totalHeight / 2 + oy;
         const step = this.CELL_SIZE + this.CELL_SPACING;
 
-        // 半透明白色填充
+        const cornerRadius = 8; // 圆角半径
+
+        // 棋盘格交替填充：(row + col) % 2 == 0 为黑色半透明，否则全透明
         for (let row = 0; row < BoardManager.ROWS; row++) {
             for (let col = 0; col < BoardManager.COLS; col++) {
+                if ((row + col) % 2 !== 0) {
+                    continue; // 全透明格子，跳过
+                }
                 const x = startX + col * step;
-                const y = startY - row * step;
-                this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
+                const y = startY - row * step - this.CELL_SIZE; // 左下角 y
+                this._graphics.roundRect(x, y, this.CELL_SIZE, this.CELL_SIZE, cornerRadius);
             }
         }
-        this._graphics.fillColor = new Color(255, 255, 255, alpha);
+        this._graphics.fillColor = new Color(0, 0, 0, alpha); // 黑色半透明
         this._graphics.fill();
 
-        // 红色描边
-        for (let row = 0; row < BoardManager.ROWS; row++) {
-            for (let col = 0; col < BoardManager.COLS; col++) {
-                const x = startX + col * step;
-                const y = startY - row * step;
-                this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
-            }
-        }
-        this._graphics.strokeColor = new Color(255, 80, 80, Math.min(alpha + 120, 255));
-        this._graphics.lineWidth = 2;
-        this._graphics.stroke();
-
-        console.log(`[BoardManager] Debug board drawn (alpha=${alpha}, offset=${ox},${oy})`);
+        console.log(`[BoardManager] Debug board drawn (alpha=${alpha}, cornerRadius=${cornerRadius})`);
     }
 
     private calculateCellLocalPosition(col: number, row: number): Vec2 {

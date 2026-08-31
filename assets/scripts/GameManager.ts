@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Widget, Canvas } from 'cc';
+import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Canvas } from 'cc';
 import { BoardManager } from './BoardManager';
 import { ItemManager } from './ItemManager';
 import { OrderManager } from './order/OrderManager';
@@ -64,9 +64,6 @@ export class GameManager extends Component {
     private initialize(): void {
         console.log('GameManager initialized');
 
-        // 移除 Canvas 上的 Widget 组件，防止 Canvas 被拉伸到浏览器窗口大小
-        this.fixCanvasSize();
-
         // 校验棋盘父节点是否在编辑器赋值
         if (!this.boardPanel) {
             console.error('[GameManager] boardPanel 为空！请在编辑器把层级管理器的 BoardPanel 拖入属性框');
@@ -119,25 +116,6 @@ export class GameManager extends Component {
                 console.log(`[GameManager] Order ${result.order.id}: ${result.status}, ${result.progress}`);
             }
         }, 0.5);
-    }
-
-    /**
-     * 移除 Canvas 上的 Widget 组件
-     * 编辑器可能在场景保存时恢复 Widget，所以在运行时强制移除
-     * Widget 会把 Canvas 拉伸到浏览器窗口大小，导致棋盘坐标错位
-     */
-    private fixCanvasSize(): void {
-        const widget = this.node.getComponent(Widget);
-        if (widget) {
-            this.node.removeComponent(Widget);
-            console.log('[GameManager] Widget removed from Canvas, fixed size 1080x1920');
-        }
-
-        // 打印 Canvas 实际尺寸
-        const transform = this.node.getComponent(UITransform);
-        if (transform) {
-            console.log(`[GameManager] Canvas size: ${transform.width} x ${transform.height}`);
-        }
     }
 
     /**
@@ -214,13 +192,13 @@ export class GameManager extends Component {
         const debugNode = new Node('DebugBoard');
         const transform = debugNode.addComponent(UITransform);
         // DebugBoard 尺寸与棋盘一致，位置与 BoardPanel 相同
-        transform.setContentSize(620, 800);
+        transform.setContentSize(1050, 1350);
         transform.setAnchorPoint(0.5, 0.5);
 
         debugNode.setParent(gameContent); // GameContent 子节点
-        debugNode.setPosition(new Vec3(0, 0, 0)); // 与 BoardPanel 同位置
-        // 插到 BoardPanel 之前，保证层级：Background < DebugBoard < BoardPanel
+        // 与 BoardPanel 同位置，确保 Debug 网格跟随棋盘移动
         if (this.boardPanel) {
+            debugNode.setPosition(this.boardPanel.position);
             debugNode.setSiblingIndex(this.boardPanel.getSiblingIndex());
         }
         return debugNode;
@@ -323,8 +301,9 @@ export class GameManager extends Component {
      */
     private logBoardInfo(): void {
         if (!this.boardPanel) return;
-        console.log(`[GameManager] BoardPanel children: ${this.boardPanel.children.length}`);
+        console.log(`[GameManager] BoardPanel localPos: ${JSON.stringify(this.boardPanel.position)}`);
         console.log(`[GameManager] BoardPanel worldPos: ${JSON.stringify(this.boardPanel.worldPosition)}`);
+        console.log(`[GameManager] BoardPanel children: ${this.boardPanel.children.length}`);
         for (let i = 0; i < this.boardPanel.children.length; i++) {
             const child = this.boardPanel.children[i];
             console.log(`  [${i}] ${child.name} pos=${JSON.stringify(child.position)}`);
