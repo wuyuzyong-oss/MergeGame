@@ -1,4 +1,4 @@
-import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Widget } from 'cc';
+import { _decorator, Component, Node, Prefab, Vec3, Sprite, SpriteFrame, ImageAsset, UITransform, Texture2D, Widget, Canvas } from 'cc';
 import { BoardManager } from './BoardManager';
 import { ItemManager } from './ItemManager';
 import { OrderManager } from './order/OrderManager';
@@ -134,6 +134,17 @@ export class GameManager extends Component {
     }
 
     /**
+     * 获取真正的 Canvas 节点
+     * GameManager 组件挂在 Canvas 的孙节点上（外面还有一层同名包裹节点），
+     * this.node 并不是 Canvas，直接 setParent(this.node) 会让 Background
+     * 在渲染遍历顺序中位于 BoardPanel 之后，从而把发射器盖住
+     */
+    private getCanvasNode(): Node {
+        const canvasComp = this.getComponentInParent(Canvas);
+        return canvasComp ? canvasComp.node : this.node;
+    }
+
+    /**
      * 创建游戏背景 Sprite 节点（1080×1920 全屏）
      * 作为 Canvas 的第一个子节点，渲染在最底层
      *
@@ -155,7 +166,7 @@ export class GameManager extends Component {
         this._bgSprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this._bgSprite.type = Sprite.Type.SIMPLE;
 
-        bgNode.setParent(this.node); // Canvas 节点
+        bgNode.setParent(this.getCanvasNode()); // 真正的 Canvas 节点
         bgNode.setPosition(new Vec3(0, 0, 0));
         bgNode.setSiblingIndex(0); // 最底层
     }
@@ -172,9 +183,12 @@ export class GameManager extends Component {
         transform.setContentSize(620, 800);
         transform.setAnchorPoint(0.5, 0.5);
 
-        debugNode.setParent(this.node); // Canvas 节点
+        debugNode.setParent(this.getCanvasNode()); // 真正的 Canvas 节点
         debugNode.setPosition(new Vec3(0, 0, 0)); // 与 BoardPanel 同位置
-        // Background 在 siblingIndex=0，DebugBoard 自然排在后面
+        // 插到 BoardPanel 之前，保证层级：Background < DebugBoard < BoardPanel
+        if (this.boardPanel) {
+            debugNode.setSiblingIndex(this.boardPanel.getSiblingIndex());
+        }
         return debugNode;
     }
 
@@ -202,7 +216,7 @@ export class GameManager extends Component {
      * Canvas 1080×1920，原点在中心
      */
     private setupUI(): void {
-        const canvas = this.node; // Canvas 节点
+        const canvas = this.getCanvasNode(); // 真正的 Canvas 节点
 
         // 1. AccountPanel —— 屏幕顶部
         if (!this.accountPanel) {
