@@ -25,7 +25,7 @@ export class BoardManager {
     public initialize(boardRoot: Node): void {
         this._boardRoot = boardRoot;
         this.createCells();
-        // 棋盘格子由背景图显示，不再用 Graphics 绘制
+        this.drawAll();
         console.log('BoardManager initialized');
         console.log(`Board created: ${BoardManager.COLS} x ${BoardManager.ROWS}`);
         console.log(`Cell count: ${BoardManager.TOTAL_CELLS}`);
@@ -154,26 +154,14 @@ export class BoardManager {
         }
     }
 
-    private createGraphics(): void {
-        if (!this._boardRoot) {
-            return;
-        }
+    /**
+     * 绘制半透明辅助网格（用于对齐背景图，后期可移除）
+     * 背景图由 GameManager 的 Sprite 节点负责，这里只画网格线
+     */
+    private drawAll(): void {
+        if (!this._boardRoot) return;
+
         this._graphics = this._boardRoot.addComponent(Graphics);
-    }
-
-    private drawBoard(): void {
-        console.log('[BoardManager] drawBoard started', {
-            boardRoot: this._boardRoot?.name,
-            cols: BoardManager.COLS,
-            rows: BoardManager.ROWS,
-            cellSize: this.CELL_SIZE,
-            gap: this.CELL_SPACING,
-        });
-
-        if (!this._graphics) {
-            console.error('[BoardManager] drawBoard failed: graphics component is null');
-            return;
-        }
 
         const totalWidth = this.getTotalWidth();
         const totalHeight = this.getTotalHeight();
@@ -181,32 +169,30 @@ export class BoardManager {
         const startY = totalHeight / 2;
         const step = this.CELL_SIZE + this.CELL_SPACING;
 
-        // 半透明白色填充 #ffffff44
+        // 半透明白色填充
         for (let row = 0; row < BoardManager.ROWS; row++) {
             for (let col = 0; col < BoardManager.COLS; col++) {
                 const x = startX + col * step;
                 const y = startY - row * step;
-                // UI 坐标系 Y 向上，高度用负数
                 this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
             }
         }
-        this._graphics.fillColor = new Color(255, 255, 255, 68); // #ffffff44
+        this._graphics.fillColor = new Color(255, 255, 255, 40);
         this._graphics.fill();
 
-        // 黑色描边 2px
+        // 红色描边
         for (let row = 0; row < BoardManager.ROWS; row++) {
             for (let col = 0; col < BoardManager.COLS; col++) {
                 const x = startX + col * step;
                 const y = startY - row * step;
-                // UI 坐标系 Y 向上，高度用负数
                 this._graphics.rect(x, y, this.CELL_SIZE, -this.CELL_SIZE);
             }
         }
-        this._graphics.strokeColor = Color.BLACK;
+        this._graphics.strokeColor = new Color(255, 80, 80, 200);
         this._graphics.lineWidth = 2;
         this._graphics.stroke();
 
-        console.log('[BoardManager] drawBoard finished');
+        console.log('[BoardManager] Grid drawn (single Graphics)');
     }
 
     private calculateCellLocalPosition(col: number, row: number): Vec2 {
