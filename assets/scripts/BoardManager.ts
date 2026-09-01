@@ -12,7 +12,7 @@ export class BoardManager {
     public static readonly TOTAL_CELLS = BoardManager.COLS * BoardManager.ROWS;
 
     // 棋盘格子大小
-    private readonly CELL_SIZE = 145;
+    public static readonly CELL_SIZE = 145;
     // 棋盘格子间距 
     private readonly CELL_SPACING = 0;
 
@@ -155,7 +155,7 @@ export class BoardManager {
         const totalHeight = this.getTotalHeight();
         const startX = -totalWidth / 2;
         const startY = totalHeight / 2;
-        const step = this.CELL_SIZE + this.CELL_SPACING;
+        const step = BoardManager.CELL_SIZE + this.CELL_SPACING;
 
         const col = Math.floor((localX - startX) / step);
         const row = Math.floor((startY - localY) / step);
@@ -196,7 +196,7 @@ export class BoardManager {
         const totalHeight = this.getTotalHeight();
         const startX = -totalWidth / 2 + ox;
         const startY = totalHeight / 2 + oy;
-        const step = this.CELL_SIZE + this.CELL_SPACING;
+        const step = BoardManager.CELL_SIZE + this.CELL_SPACING;
 
         const cornerRadius = 8; // 圆角半径
 
@@ -207,8 +207,8 @@ export class BoardManager {
                     continue; // 全透明格子，跳过
                 }
                 const x = startX + col * step;
-                const y = startY - row * step - this.CELL_SIZE; // 左下角 y
-                this._graphics.roundRect(x, y, this.CELL_SIZE, this.CELL_SIZE, cornerRadius);
+                const y = startY - row * step - BoardManager.CELL_SIZE; // 左下角 y
+                this._graphics.roundRect(x, y, BoardManager.CELL_SIZE, BoardManager.CELL_SIZE, cornerRadius);
             }
         }
         this._graphics.fillColor = new Color(0, 0, 0, alpha); // 黑色半透明
@@ -222,18 +222,18 @@ export class BoardManager {
         const totalHeight = this.getTotalHeight();
         const startX = -totalWidth / 2;
         const startY = totalHeight / 2;
-        const step = this.CELL_SIZE + this.CELL_SPACING;
+        const step = BoardManager.CELL_SIZE + this.CELL_SPACING;
 
-        const x = startX + col * step + this.CELL_SIZE / 2;
-        const y = startY - row * step - this.CELL_SIZE / 2;
+        const x = startX + col * step + BoardManager.CELL_SIZE / 2;
+        const y = startY - row * step - BoardManager.CELL_SIZE / 2;
         return new Vec2(x, y);
     }
 
     private getTotalWidth(): number {
-        return BoardManager.COLS * this.CELL_SIZE + (BoardManager.COLS - 1) * this.CELL_SPACING;
+        return BoardManager.COLS * BoardManager.CELL_SIZE + (BoardManager.COLS - 1) * this.CELL_SPACING;
     }
 
     private getTotalHeight(): number {
-        return BoardManager.ROWS * this.CELL_SIZE + (BoardManager.ROWS - 1) * this.CELL_SPACING;
+        return BoardManager.ROWS * BoardManager.CELL_SIZE + (BoardManager.ROWS - 1) * this.CELL_SPACING;
     }
 }

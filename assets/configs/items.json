@@ -1,191 +1,66 @@
 {
     "items": [
-        {
-            "itemId": "backpack_generator",
-            "chainId": "backpack_generator",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1,
-            "isGenerator": true
-        },
-        {
-            "itemId": "test_item_lv1",
-            "chainId": "test_chain",
-            "level": 1,
-            "nextItemId": "test_item_lv2",
-            "maxLevel": 2
-        },
-        {
-            "itemId": "test_item_lv2",
-            "chainId": "test_chain",
-            "level": 2,
-            "nextItemId": null,
-            "maxLevel": 2
-        },
-        {
-            "itemId": "towel_lv1",
-            "chainId": "towel",
-            "level": 1,
-            "nextItemId": "towel_lv2",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "towel_lv2",
-            "chainId": "towel",
-            "level": 2,
-            "nextItemId": "towel_lv3",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "towel_lv3",
-            "chainId": "towel",
-            "level": 3,
-            "nextItemId": null,
-            "maxLevel": 3
-        },
-        {
-            "itemId": "pocket_mirror_lv1",
-            "chainId": "pocket_mirror",
-            "level": 1,
-            "nextItemId": "pocket_mirror_lv2",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "pocket_mirror_lv2",
-            "chainId": "pocket_mirror",
-            "level": 2,
-            "nextItemId": "pocket_mirror_lv3",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "pocket_mirror_lv3",
-            "chainId": "pocket_mirror",
-            "level": 3,
-            "nextItemId": null,
-            "maxLevel": 3
-        },
-        {
-            "itemId": "glasses_lv1",
-            "chainId": "glasses",
-            "level": 1,
-            "nextItemId": "glasses_lv2",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "glasses_lv2",
-            "chainId": "glasses",
-            "level": 2,
-            "nextItemId": "glasses_lv3",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "glasses_lv3",
-            "chainId": "glasses",
-            "level": 3,
-            "nextItemId": null,
-            "maxLevel": 3
-        },
-        {
-            "itemId": "socks_lv1",
-            "chainId": "socks",
-            "level": 1,
-            "nextItemId": "socks_lv2",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "socks_lv2",
-            "chainId": "socks",
-            "level": 2,
-            "nextItemId": "socks_lv3",
-            "maxLevel": 3
-        },
-        {
-            "itemId": "socks_lv3",
-            "chainId": "socks",
-            "level": 3,
-            "nextItemId": null,
-            "maxLevel": 3
-        },
-        {
-            "itemId": "vegetable_basket",
-            "chainId": "vegetable_basket",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1,
-            "isGenerator": true
-        },
-        {
-            "itemId": "tent",
-            "chainId": "tent",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1,
-            "isGenerator": true
-        },
-        {
-            "itemId": "blueberry_generator",
-            "chainId": "blueberry_generator",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1,
-            "isGenerator": true
-        },
-        {
-            "itemId": "jam_generator",
-            "chainId": "jam_generator",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1,
-            "isGenerator": true
-        },
-        {
-            "itemId": "onion_lv1",
-            "chainId": "onion",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "mushroom_lv1",
-            "chainId": "mushroom",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "bacon_lv1",
-            "chainId": "bacon",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "eye_mask_lv1",
-            "chainId": "eye_mask",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "sleeping_bag_lv1",
-            "chainId": "sleeping_bag",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "blueberry_lv1",
-            "chainId": "blueberry",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        },
-        {
-            "itemId": "jam_lv1",
-            "chainId": "jam",
-            "level": 1,
-            "nextItemId": null,
-            "maxLevel": 1
-        }
+        {"itemId":"bp_generator","chainId":"bp_generator","level":1,"nextItemId":null,"maxLevel":1,"isGenerator":true,"icon":"bp_generator"},
+        {"itemId":"veg_generator","chainId":"veg_generator","level":1,"nextItemId":null,"maxLevel":1,"isGenerator":true,"icon":"veg_generator"},
+        {"itemId":"tent_generator","chainId":"tent_generator","level":1,"nextItemId":null,"maxLevel":1,"isGenerator":true,"icon":"tent_generator"},
+        {"itemId":"berry_generator","chainId":"berry_generator","level":1,"nextItemId":null,"maxLevel":1,"isGenerator":true,"icon":"berry_generator"},
+        {"itemId":"jam_generator","chainId":"berry_c1","level":5,"nextItemId":null,"maxLevel":5,"isGenerator":true,"icon":"jam_generator"},
+        {"itemId":"bp_c1_lv1","chainId":"bp_c1","level":1,"nextItemId":"bp_c1_lv2","maxLevel":11,"icon":"bp_c1_lv1"},
+        {"itemId":"bp_c1_lv2","chainId":"bp_c1","level":2,"nextItemId":"bp_c1_lv3","maxLevel":11,"icon":"bp_c1_lv2"},
+        {"itemId":"bp_c1_lv3","chainId":"bp_c1","level":3,"nextItemId":"bp_c1_lv4","maxLevel":11,"icon":"bp_c1_lv3"},
+        {"itemId":"bp_c1_lv4","chainId":"bp_c1","level":4,"nextItemId":"bp_c1_lv5","maxLevel":11,"icon":"bp_c1_lv4"},
+        {"itemId":"bp_c1_lv5","chainId":"bp_c1","level":5,"nextItemId":"bp_c1_lv6","maxLevel":11,"icon":"bp_c1_lv5"},
+        {"itemId":"bp_c1_lv6","chainId":"bp_c1","level":6,"nextItemId":"bp_c1_lv7","maxLevel":11,"icon":"bp_c1_lv6"},
+        {"itemId":"bp_c1_lv7","chainId":"bp_c1","level":7,"nextItemId":"bp_c1_lv8","maxLevel":11,"icon":"bp_c1_lv7"},
+        {"itemId":"bp_c1_lv8","chainId":"bp_c1","level":8,"nextItemId":"bp_c1_lv9","maxLevel":11,"icon":"bp_c1_lv8"},
+        {"itemId":"bp_c1_lv9","chainId":"bp_c1","level":9,"nextItemId":"bp_c1_lv10","maxLevel":11,"icon":"bp_c1_lv9"},
+        {"itemId":"bp_c1_lv10","chainId":"bp_c1","level":10,"nextItemId":"bp_c1_lv11","maxLevel":11,"icon":"bp_c1_lv10"},
+        {"itemId":"bp_c1_lv11","chainId":"bp_c1","level":11,"nextItemId":null,"maxLevel":11,"icon":"bp_c1_lv11"},
+        {"itemId":"bp_c2_lv1","chainId":"bp_c2","level":1,"nextItemId":"bp_c2_lv2","maxLevel":7,"icon":"bp_c2_lv1"},
+        {"itemId":"bp_c2_lv2","chainId":"bp_c2","level":2,"nextItemId":"bp_c2_lv3","maxLevel":7,"icon":"bp_c2_lv2"},
+        {"itemId":"bp_c2_lv3","chainId":"bp_c2","level":3,"nextItemId":"bp_c2_lv4","maxLevel":7,"icon":"bp_c2_lv3"},
+        {"itemId":"bp_c2_lv4","chainId":"bp_c2","level":4,"nextItemId":"bp_c2_lv5","maxLevel":7,"icon":"bp_c2_lv4"},
+        {"itemId":"bp_c2_lv5","chainId":"bp_c2","level":5,"nextItemId":"bp_c2_lv6","maxLevel":7,"icon":"bp_c2_lv5"},
+        {"itemId":"bp_c2_lv6","chainId":"bp_c2","level":6,"nextItemId":"bp_c2_lv7","maxLevel":7,"icon":"bp_c2_lv6"},
+        {"itemId":"bp_c2_lv7","chainId":"bp_c2","level":7,"nextItemId":null,"maxLevel":7,"icon":"bp_c2_lv7"},
+        {"itemId":"veg_c1_lv1","chainId":"veg_c1","level":1,"nextItemId":"veg_c1_lv2","maxLevel":9,"icon":"veg_c1_lv1"},
+        {"itemId":"veg_c1_lv2","chainId":"veg_c1","level":2,"nextItemId":"veg_c1_lv3","maxLevel":9,"icon":"veg_c1_lv2"},
+        {"itemId":"veg_c1_lv3","chainId":"veg_c1","level":3,"nextItemId":"veg_c1_lv4","maxLevel":9,"icon":"veg_c1_lv3"},
+        {"itemId":"veg_c1_lv4","chainId":"veg_c1","level":4,"nextItemId":"veg_c1_lv5","maxLevel":9,"icon":"veg_c1_lv4"},
+        {"itemId":"veg_c1_lv5","chainId":"veg_c1","level":5,"nextItemId":"veg_c1_lv6","maxLevel":9,"icon":"veg_c1_lv5"},
+        {"itemId":"veg_c1_lv6","chainId":"veg_c1","level":6,"nextItemId":"veg_c1_lv7","maxLevel":9,"icon":"veg_c1_lv6"},
+        {"itemId":"veg_c1_lv7","chainId":"veg_c1","level":7,"nextItemId":"veg_c1_lv8","maxLevel":9,"icon":"veg_c1_lv7"},
+        {"itemId":"veg_c1_lv8","chainId":"veg_c1","level":8,"nextItemId":"veg_c1_lv9","maxLevel":9,"icon":"veg_c1_lv8"},
+        {"itemId":"veg_c1_lv9","chainId":"veg_c1","level":9,"nextItemId":null,"maxLevel":9,"icon":"veg_c1_lv9"},
+        {"itemId":"veg_c2_lv1","chainId":"veg_c2","level":1,"nextItemId":"veg_c2_lv2","maxLevel":6,"icon":"veg_c2_lv1"},
+        {"itemId":"veg_c2_lv2","chainId":"veg_c2","level":2,"nextItemId":"veg_c2_lv3","maxLevel":6,"icon":"veg_c2_lv2"},
+        {"itemId":"veg_c2_lv3","chainId":"veg_c2","level":3,"nextItemId":"veg_c2_lv4","maxLevel":6,"icon":"veg_c2_lv3"},
+        {"itemId":"veg_c2_lv4","chainId":"veg_c2","level":4,"nextItemId":"veg_c2_lv5","maxLevel":6,"icon":"veg_c2_lv4"},
+        {"itemId":"veg_c2_lv5","chainId":"veg_c2","level":5,"nextItemId":"veg_c2_lv6","maxLevel":6,"icon":"veg_c2_lv5"},
+        {"itemId":"veg_c2_lv6","chainId":"veg_c2","level":6,"nextItemId":null,"maxLevel":6,"icon":"veg_c2_lv6"},
+        {"itemId":"tent_c1_lv1","chainId":"tent_c1","level":1,"nextItemId":"tent_c1_lv2","maxLevel":8,"icon":"tent_c1_lv1"},
+        {"itemId":"tent_c1_lv2","chainId":"tent_c1","level":2,"nextItemId":"tent_c1_lv3","maxLevel":8,"icon":"tent_c1_lv2"},
+        {"itemId":"tent_c1_lv3","chainId":"tent_c1","level":3,"nextItemId":"tent_c1_lv4","maxLevel":8,"icon":"tent_c1_lv3"},
+        {"itemId":"tent_c1_lv4","chainId":"tent_c1","level":4,"nextItemId":"tent_c1_lv5","maxLevel":8,"icon":"tent_c1_lv4"},
+        {"itemId":"tent_c1_lv5","chainId":"tent_c1","level":5,"nextItemId":"tent_c1_lv6","maxLevel":8,"icon":"tent_c1_lv5"},
+        {"itemId":"tent_c1_lv6","chainId":"tent_c1","level":6,"nextItemId":"tent_c1_lv7","maxLevel":8,"icon":"tent_c1_lv6"},
+        {"itemId":"tent_c1_lv7","chainId":"tent_c1","level":7,"nextItemId":"tent_c1_lv8","maxLevel":8,"icon":"tent_c1_lv7"},
+        {"itemId":"tent_c1_lv8","chainId":"tent_c1","level":8,"nextItemId":null,"maxLevel":8,"icon":"tent_c1_lv8"},
+        {"itemId":"tent_c2_lv1","chainId":"tent_c2","level":1,"nextItemId":"tent_c2_lv2","maxLevel":4,"icon":"tent_c2_lv1"},
+        {"itemId":"tent_c2_lv2","chainId":"tent_c2","level":2,"nextItemId":"tent_c2_lv3","maxLevel":4,"icon":"tent_c2_lv2"},
+        {"itemId":"tent_c2_lv3","chainId":"tent_c2","level":3,"nextItemId":"tent_c2_lv4","maxLevel":4,"icon":"tent_c2_lv3"},
+        {"itemId":"tent_c2_lv4","chainId":"tent_c2","level":4,"nextItemId":null,"maxLevel":4,"icon":"tent_c2_lv4"},
+        {"itemId":"berry_c1_lv1","chainId":"berry_c1","level":1,"nextItemId":"berry_c1_lv2","maxLevel":5,"icon":"berry_c1_lv1"},
+        {"itemId":"berry_c1_lv2","chainId":"berry_c1","level":2,"nextItemId":"berry_c1_lv3","maxLevel":5,"icon":"berry_c1_lv2"},
+        {"itemId":"berry_c1_lv3","chainId":"berry_c1","level":3,"nextItemId":"berry_c1_lv4","maxLevel":5,"icon":"berry_c1_lv3"},
+        {"itemId":"berry_c1_lv4","chainId":"berry_c1","level":4,"nextItemId":"jam_generator","maxLevel":5,"icon":"berry_c1_lv4"},
+        {"itemId":"jam_c1_lv1","chainId":"jam_c1","level":1,"nextItemId":"jam_c1_lv2","maxLevel":8,"icon":"jam_c1_lv1"},
+        {"itemId":"jam_c1_lv2","chainId":"jam_c1","level":2,"nextItemId":"jam_c1_lv3","maxLevel":8,"icon":"jam_c1_lv2"},
+        {"itemId":"jam_c1_lv3","chainId":"jam_c1","level":3,"nextItemId":"jam_c1_lv4","maxLevel":8,"icon":"jam_c1_lv3"},
+        {"itemId":"jam_c1_lv4","chainId":"jam_c1","level":4,"nextItemId":"jam_c1_lv5","maxLevel":8,"icon":"jam_c1_lv4"},
+        {"itemId":"jam_c1_lv5","chainId":"jam_c1","level":5,"nextItemId":"jam_c1_lv6","maxLevel":8,"icon":"jam_c1_lv5"},
+        {"itemId":"jam_c1_lv6","chainId":"jam_c1","level":6,"nextItemId":"jam_c1_lv7","maxLevel":8,"icon":"jam_c1_lv6"},
+        {"itemId":"jam_c1_lv7","chainId":"jam_c1","level":7,"nextItemId":"jam_c1_lv8","maxLevel":8,"icon":"jam_c1_lv7"},
+        {"itemId":"jam_c1_lv8","chainId":"jam_c1","level":8,"nextItemId":null,"maxLevel":8,"icon":"jam_c1_lv8"}
     ]
 }

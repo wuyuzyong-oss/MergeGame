@@ -1,8 +1,9 @@
-import { _decorator, Component, Node, Vec2, Vec3, EventTouch, director, Camera, Graphics, Color, tween } from 'cc';
+import { _decorator, Component, Node, Vec2, Vec3, EventTouch, director, Camera, Sprite, SpriteFrame, Texture2D, UITransform, resources, tween } from 'cc';
 import { ItemManager } from './ItemManager';
 import { ItemData } from './ItemData';
 import { Cell } from './Cell';
 import { getGameContext } from './core/GameContext';
+import { BoardManager } from './BoardManager';
 
 const { ccclass, property } = _decorator;
 
@@ -10,6 +11,10 @@ const { ccclass, property } = _decorator;
  * 物品组件
  * 仅负责物品节点的表现、拖拽交互以及与 ItemManager 通信
  * 不处理合成规则等业务逻辑
+ *
+ * 显示方式：Sprite 图片，从 resources/textures/items/ 动态加载
+ * 图片命名：与 itemId 一致，如 bp_c1_lv7.png
+ * 显示大小：与格子同大（读取 BoardManager.CELL_SIZE），不管原图分辨率都缩放到该尺寸
  */
 @ccclass('Item')
 export class Item extends Component {
@@ -18,6 +23,12 @@ export class Item extends Component {
 
     @property({ type: Number })
     public dragThreshold: number = 10;
+
+    /**
+     * 已加载的 SpriteFrame 缓存（静态，所有 Item 共享）
+     * key: resources 加载路径，value: SpriteFrame
+     */
+    private static _spriteFrameCache: Map<string, SpriteFrame> = new Map();
 
     private _data: ItemData | null = null;
 
@@ -50,6 +61,9 @@ export class Item extends Component {
     private _startScreenPos: Vec2 | null = null;
     private _isDragging: boolean = false;
 
+    /** Sprite 组件引用，用于设置图片 */
+    private _sprite: Sprite | null = null;
+
     onLoad() {
         this.registerTouchEvents();
         this.createVisual();
@@ -59,64 +73,79 @@ export class Item extends Component {
         this.unregisterTouchEvents();
     }
 
+    /**
+     * 创建物品视觉：UITransform 固定大小 + Sprite 组件
+     * Sprite.sizeMode = CUSTOM，强制缩放到格子大小
+     */
     private createVisual(): void {
-        const graphics = this.node.addComponent(Graphics);
-        if (!graphics) {
-            return;
-        }
+        // UITransform：固定显示大小，锚点居中
+        const transform = this.node.getComponent(UITransform) || this.node.addComponent(UITransform);
+        transform.setContentSize(BoardManager.CELL_SIZE, BoardManager.CELL_SIZE);
+        transform.setAnchorPoint(0.5, 0.5);
 
-        const size = 70;
-        const color = this.generateVisualColor();
+        // Sprite：CUSTOM 模式，不管原图分辨率都缩放到格子大小
+        this._sprite = this.node.addComponent(Sprite);
+        this._sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this._sprite.type = Sprite.Type.SIMPLE;
 
-        graphics.fillColor = color;
-        graphics.rect(-size / 2, -size / 2, size, size);
-        graphics.fill();
-
-        graphics.strokeColor = Color.BLACK;
-        graphics.lineWidth = 2;
-        graphics.rect(-size / 2, -size / 2, size, size);
-        graphics.stroke();
-    }
-
-    private refreshVisual(): void {
-        const graphics = this.node.getComponent(Graphics);
-        if (!graphics) {
-            return;
-        }
-        graphics.clear();
-
-        const size = 70;
-        const color = this.generateVisualColor();
-
-        graphics.fillColor = color;
-        graphics.rect(-size / 2, -size / 2, size, size);
-        graphics.fill();
-
-        graphics.strokeColor = Color.BLACK;
-        graphics.lineWidth = 2;
-        graphics.rect(-size / 2, -size / 2, size, size);
-        graphics.stroke();
-    }
-
-    private generateVisualColor(): Color {
+        // 如果创建时已有数据，立即加载图片
         if (this._data) {
-            const hash = this.hashString(this._data.itemId);
-            const r = 100 + (hash % 155);
-            const g = 100 + ((hash * 7) % 155);
-            const b = 100 + ((hash * 13) % 155);
-            return new Color(r, g, b, 255);
+            this.loadIcon();
         }
-        return new Color(200, 200, 200, 255);
     }
 
-    private hashString(str: string): number {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
+    /**
+     * 刷新视觉：数据变化时重新加载对应图片
+     */
+    private refreshVisual(): void {
+        this.loadIcon();
+    }
+
+    /**
+     * 加载物品图标图片
+     * 路径：resources/textures/items/{itemId}
+     * 先查静态缓存，命中则直接使用；未命中则异步 resources.load
+     */
+    private loadIcon(): void {
+        if (!this._sprite || !this._data) {
+            return;
         }
-        return Math.abs(hash);
+
+        const itemId = this._data.itemId;
+        const path = `textures/items/${itemId}`;
+
+        // 先查缓存
+        const cached = Item._spriteFrameCache.get(path);
+        if (cached) {
+            this._sprite.spriteFrame = cached;
+            return;
+        }
+
+        // 加载 Texture2D（兼容图片导入类型为 texture 的情况）
+        // texture 类型的图片，Texture2D 是子资源，先尝试 /texture 子路径，再尝试主路径
+        const tryLoad = (loadPath: string, onFail: () => void) => {
+            resources.load(loadPath, Texture2D, (err, texture) => {
+                if (err) {
+                    onFail();
+                    return;
+                }
+                if (texture) {
+                    const spriteFrame = new SpriteFrame();
+                    spriteFrame.texture = texture;
+                    Item._spriteFrameCache.set(path, spriteFrame);
+                    if (this._sprite && this._data && this._data.itemId === itemId) {
+                        this._sprite.spriteFrame = spriteFrame;
+                    }
+                }
+            });
+        };
+
+        // 先尝试子资源路径 text/items/xxx/texture，失败再试主路径
+        tryLoad(`${path}/texture`, () => {
+            tryLoad(path, () => {
+                console.warn(`[Item] 图片加载失败: ${path}（已尝试子路径和主路径）。请在 Cocos Creator 编辑器里右键 resources 目录 → 重新导入，然后重启预览`);
+            });
+        });
     }
 
     private registerTouchEvents(): void {

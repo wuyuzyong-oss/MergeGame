@@ -10,8 +10,8 @@ export class PlayerData {
     }
 
     public level: number = 1;
-    public energy: number = 20;
-    public maxEnergy: number = 100;
+    public energy: number = 8888;
+    public maxEnergy: number = 9999;
     public gold: number = 0;
     public diamond: number = 5;
 }

@@ -143,28 +143,32 @@ export class OrderItemView {
 
     /**
      * 将 itemId 转换为可读名称
-     * 例：towel_lv3 → 毛巾 LV3
+     * 例：bp_c1_lv7 → 背包-线路1-Lv7，bp_generator → 背包发射器
      */
     public static formatItemName(itemId: string): string {
-        const nameMap: Record<string, string> = {
-            'towel': '毛巾',
-            'pocket_mirror': '镜子',
-            'glasses': '眼镜',
-            'socks': '袜子',
-            'onion': '洋葱',
-            'mushroom': '蘑菇',
-            'bacon': '培根',
-            'eye_mask': '眼罩',
-            'sleeping_bag': '睡袋',
-            'blueberry': '蓝莓',
+        const genMap: Record<string, string> = {
+            'bp': '背包',
+            'veg': '蔬菜',
+            'tent': '帐篷',
+            'berry': '蓝莓',
             'jam': '果酱',
         };
 
-        const match = itemId.match(/^(.+)_lv(\d+)$/);
-        if (match) {
-            const baseName = nameMap[match[1]] || match[1];
-            return `${baseName} LV${match[2]}`;
+        // 发射器本身：bp_generator -> 背包发射器
+        if (itemId.endsWith('_generator')) {
+            const gen = itemId.replace('_generator', '');
+            return `${genMap[gen] || gen}发射器`;
         }
+
+        // 普通物品：bp_c1_lv7 -> 背包-线路1-Lv7
+        const match = itemId.match(/^(.+)_(c\\d+)_lv(\\d+)$/);
+        if (match) {
+            const gen = genMap[match[1]] || match[1];
+            const chain = match[2].replace('c', '线路');
+            const level = match[3];
+            return `${gen}-${chain}-Lv${level}`;
+        }
+
         return itemId;
     }
 }

@@ -1,45 +1,45 @@
 {
     "generators": [
         {
-            "id": "backpack_generator",
+            "id": "bp_generator",
             "cost": 1,
             "outputs": [
-                {"itemId": "towel_lv1", "rate": 50},
-                {"itemId": "pocket_mirror_lv1", "rate": 30},
-                {"itemId": "glasses_lv1", "rate": 15},
-                {"itemId": "socks_lv1", "rate": 5}
+                {"itemId": "bp_c1_lv1", "rate": 50},
+                {"itemId": "bp_c2_lv1", "rate": 30},
+                {"itemId": "bp_c1_lv2", "rate": 15},
+                {"itemId": "bp_c1_lv3", "rate": 5}
             ]
         },
         {
-            "id": "vegetable_basket",
+            "id": "veg_generator",
             "cost": 1,
             "outputs": [
-                {"itemId": "onion_lv1", "rate": 65},
-                {"itemId": "mushroom_lv1", "rate": 20},
-                {"itemId": "bacon_lv1", "rate": 15}
+                {"itemId": "veg_c1_lv1", "rate": 65},
+                {"itemId": "veg_c1_lv2", "rate": 20},
+                {"itemId": "veg_c2_lv1", "rate": 15}
             ]
         },
         {
-            "id": "tent",
+            "id": "tent_generator",
             "cost": 1,
             "outputs": [
-                {"itemId": "eye_mask_lv1", "rate": 60},
-                {"itemId": "sleeping_bag_lv1", "rate": 40}
+                {"itemId": "tent_c1_lv1", "rate": 60},
+                {"itemId": "tent_c2_lv1", "rate": 40}
             ]
         },
         {
-            "id": "blueberry_generator",
+            "id": "berry_generator",
             "cost": 1,
-            "life": 12,
             "outputs": [
-                {"itemId": "blueberry_lv1", "rate": 100}
+                {"itemId": "berry_c1_lv1", "rate": 100}
             ]
         },
         {
             "id": "jam_generator",
             "cost": 1,
+            "life": 12,
             "outputs": [
-                {"itemId": "jam_lv1", "rate": 100}
+                {"itemId": "jam_c1_lv1", "rate": 100}
             ]
         }
     ]

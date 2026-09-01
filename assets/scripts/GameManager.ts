@@ -266,27 +266,27 @@ export class GameManager extends Component {
         console.log('[GameManager] spawning test generators');
 
         // (1,4) 背包发射器
-        const backpack = ItemManager.instance.spawnItem('backpack_generator', 1, 4);
+        const backpack = ItemManager.instance.spawnItem('bp_generator', 1, 4);
         if (backpack) {
-            console.log('[GameManager] spawned backpack_generator at col=1, row=4');
+            console.log('[GameManager] spawned bp_generator at col=1, row=4');
         }
 
         // (2,4) 蔬菜篮
-        const vegetable = ItemManager.instance.spawnItem('vegetable_basket', 2, 4);
+        const vegetable = ItemManager.instance.spawnItem('veg_generator', 2, 4);
         if (vegetable) {
-            console.log('[GameManager] spawned vegetable_basket at col=2, row=4');
+            console.log('[GameManager] spawned veg_generator at col=2, row=4');
         }
 
         // (3,4) 帐篷
-        const tent = ItemManager.instance.spawnItem('tent', 3, 4);
+        const tent = ItemManager.instance.spawnItem('tent_generator', 3, 4);
         if (tent) {
             console.log('[GameManager] spawned tent at col=3, row=4');
         }
 
         // (4,4) 蓝莓发射器
-        const blueberry = ItemManager.instance.spawnItem('blueberry_generator', 4, 4);
+        const blueberry = ItemManager.instance.spawnItem('berry_generator', 4, 4);
         if (blueberry) {
-            console.log('[GameManager] spawned blueberry_generator at col=4, row=4');
+            console.log('[GameManager] spawned berry_generator at col=4, row=4');
         }
 
         // (5,4) 果酱发射器

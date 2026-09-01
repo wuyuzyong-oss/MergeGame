@@ -288,13 +288,23 @@ export class ItemManager {
                 this.safeDestroyItem(targetNode, targetItemData);
             }
 
-            // 创建新的 LV2 物品
+            // 创建合成后的新物品
+            const newItemConfig = ConfigManager.instance.getItemConfig(nextItemId);
             const newItemData = new ItemData({
                 itemId: nextItemId,
                 chainId: dragItemData.chainId,
                 level: dragItemData.level + 1,
-                maxLevel: ConfigManager.instance.getItemConfig(nextItemId)?.maxLevel ?? 0,
+                maxLevel: newItemConfig?.maxLevel ?? 0,
+                isGenerator: newItemConfig?.isGenerator ?? false,
             });
+
+            // 如果合成结果是发射器（如蓝莓LV5→果酱发射器），从 generators.json 读取寿命
+            if (newItemConfig?.isGenerator) {
+                const genConfig = ConfigManager.instance.getGeneratorConfig(nextItemId);
+                if (genConfig && typeof genConfig.life === 'number') {
+                    newItemData.generatorLife = genConfig.life;
+                }
+            }
 
             const newNode = this.spawnItemWithData(newItemData, targetCol, targetRow);
             if (!newNode) {
