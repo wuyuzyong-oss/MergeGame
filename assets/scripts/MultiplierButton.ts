@@ -25,6 +25,7 @@ export class MultiplierButton extends Component {
         2: new Color(80, 220, 100, 255),
         4: new Color(80, 140, 255, 255),
         8: new Color(190, 90, 255, 255),
+        16: new Color(255, 140, 0, 255),
     };
 
     private _graphics: Graphics | null = null;

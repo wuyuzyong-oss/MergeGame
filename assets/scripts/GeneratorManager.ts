@@ -25,6 +25,7 @@ export class GeneratorManager {
         2: 1,
         4: 2,
         8: 3,
+        16: 4,
     };
 
     /**
@@ -49,7 +50,7 @@ export class GeneratorManager {
     public generate(generatorData: ItemData): GeneratorResult | null {
         console.log(`[Generator] Click: ${generatorData.itemId}`);
 
-        const boardManager = getGameContext()?.boardManager ?? null;
+        const boardManager = GameManager.instance.boardManager;
         if (!boardManager) {
             console.error('[Generator] Failed: BoardManager not found');
             return null;

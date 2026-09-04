@@ -49,7 +49,7 @@ export class GameManager extends Component {
 
     // ========== 倍数功能 ==========
     /** 倍数档位，循环切换 */
-    private static readonly MULTIPLIERS = [1, 2, 4, 8];
+    private static readonly MULTIPLIERS = [1, 2, 4, 8, 16];
     /** 当前倍数索引 */
     private _multiplierIndex = 0;
     /** 倍数按钮节点 */
