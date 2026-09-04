@@ -5,6 +5,7 @@ import { OrderManager } from './order/OrderManager';
 import { ResourceManager } from './resource/ResourceManager';
 import { EventManager } from './core/EventManager';
 import { setGameContext } from './core/GameContext';
+import { MultiplierButton } from './MultiplierButton';
 // 注意：不直接 import AccountPanel / OrderPanel，避免循环依赖
 // GameManager → OrderPanel → OrderManager → GameManager
 // 改用 @ccclass 注册名 + addComponent(字符串) 动态挂载
@@ -45,6 +46,30 @@ export class GameManager extends Component {
 
     private _boardManager: BoardManager | null = null;
     private _bgSprite: Sprite | null = null;
+
+    // ========== 倍数功能 ==========
+    /** 倍数档位，循环切换 */
+    private static readonly MULTIPLIERS = [1, 2, 4, 8];
+    /** 当前倍数索引 */
+    private _multiplierIndex = 0;
+    /** 倍数按钮节点 */
+    private _multiplierButton: Node | null = null;
+
+    /**
+     * 当前倍数（1/2/4/8）
+     */
+    public get currentMultiplier(): number {
+        return GameManager.MULTIPLIERS[this._multiplierIndex];
+    }
+
+    /**
+     * 切换到下一个倍数：x1→x2→x4→x8→x1
+     */
+    public toggleMultiplier(): void {
+        this._multiplierIndex = (this._multiplierIndex + 1) % GameManager.MULTIPLIERS.length;
+        console.log(`[GameManager] Multiplier -> x${this.currentMultiplier}`);
+        EventManager.instance.emit(EventManager.MULTIPLIER_CHANGED, this.currentMultiplier);
+    }
 
     onLoad() {
         GameManager._instance = this;
@@ -257,6 +282,21 @@ export class GameManager extends Component {
             effectNode.setPosition(new Vec3(0, 0, 0));
             this.effectLayer = effectNode;
         }
+
+        // 4. MultiplierButton —— 倍数按钮，放 OrderPanel 右边
+        if (!this._multiplierButton) {
+            const btnNode = new Node('MultiplierButton');
+            btnNode.addComponent(MultiplierButton);
+            btnNode.setParent(canvas);
+            btnNode.setPosition(new Vec3(420, 560, 0));
+            this._multiplierButton = btnNode;
+            // 初始化按钮显示当前倍数
+            const btnComp = btnNode.getComponent(MultiplierButton);
+            if (btnComp) {
+                btnComp.setMultiplier(this.currentMultiplier);
+            }
+            console.log('[GameManager] MultiplierButton created at (420, 560)');
+        }
     }
 
     /**
@@ -340,6 +380,10 @@ export class GameManager extends Component {
         });
         EventManager.instance.on(EventManager.DIAMOND_CHANGED, (diamond: number) => {
             console.log('[Event] DIAMOND_CHANGED:', diamond);
+        });
+        // 倍数按钮点击事件
+        EventManager.instance.on(EventManager.MULTIPLIER_TOGGLE, () => {
+            this.toggleMultiplier();
         });
     }
 

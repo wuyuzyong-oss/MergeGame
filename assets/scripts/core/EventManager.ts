@@ -17,6 +17,10 @@ export class EventManager {
     public static readonly ITEM_SPAWNED = 'ITEM_SPAWNED';
     public static readonly ITEM_MERGED = 'ITEM_MERGED';
 
+    // ========== 倍数事件 ==========
+    public static readonly MULTIPLIER_TOGGLE = 'MULTIPLIER_TOGGLE';
+    public static readonly MULTIPLIER_CHANGED = 'MULTIPLIER_CHANGED';
+
     // ========== 订单事件 ==========
     public static readonly ORDER_CHANGED = 'ORDER_CHANGED';
     public static readonly ORDER_STATUS_CHANGED = 'ORDER_STATUS_CHANGED';
