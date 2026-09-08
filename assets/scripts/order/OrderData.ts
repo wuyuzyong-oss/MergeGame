@@ -5,6 +5,7 @@ import { OrderItem } from './OrderItem';
  */
 export class OrderData {
     public id: string = '';
+    public npcId: string = '';
     public items: OrderItem[] = [];
     public reward: number = 0;
 

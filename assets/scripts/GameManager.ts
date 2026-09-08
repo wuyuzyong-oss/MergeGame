@@ -6,6 +6,7 @@ import { ResourceManager } from './resource/ResourceManager';
 import { EventManager } from './core/EventManager';
 import { setGameContext } from './core/GameContext';
 import { MultiplierButton } from './MultiplierButton';
+import { OrderCard } from './order/OrderCard';
 // 注意：不直接 import AccountPanel / OrderPanel，避免循环依赖
 // GameManager → OrderPanel → OrderManager → GameManager
 // 改用 @ccclass 注册名 + addComponent(字符串) 动态挂载
@@ -130,6 +131,9 @@ export class GameManager extends Component {
 
         // 初始化订单系统
         OrderManager.instance.init();
+
+        // 后台预加载所有NPC序列帧（避免订单显示时才加载导致卡顿）
+        OrderCard.preloadAllNPCs();
 
         // 创建 UI 节点（AccountPanel / OrderPanel / EffectLayer）
         this.setupUI();
@@ -270,9 +274,8 @@ export class GameManager extends Component {
             const orderNode = new Node('OrderPanel');
             orderNode.addComponent('OrderPanel' as any);
             orderNode.setParent(canvas);
-            orderNode.setPosition(new Vec3(0, 560, 0));
             this.orderPanel = orderNode;
-            console.log('[GameManager] OrderPanel created at y=560');
+            console.log('[GameManager] OrderPanel created (position controlled by OrderPanel.POSITION_Y)');
         }
 
         // 3. EffectLayer —— 空容器，用于特效
@@ -288,14 +291,14 @@ export class GameManager extends Component {
             const btnNode = new Node('MultiplierButton');
             btnNode.addComponent(MultiplierButton);
             btnNode.setParent(canvas);
-            btnNode.setPosition(new Vec3(420, 560, 0));
+            btnNode.setPosition(new Vec3(420, 880, 0));
             this._multiplierButton = btnNode;
             // 初始化按钮显示当前倍数
             const btnComp = btnNode.getComponent(MultiplierButton);
             if (btnComp) {
                 btnComp.setMultiplier(this.currentMultiplier);
             }
-            console.log('[GameManager] MultiplierButton created at (420, 560)');
+            console.log('[GameManager] MultiplierButton created at (420, 880)');
         }
     }
 
