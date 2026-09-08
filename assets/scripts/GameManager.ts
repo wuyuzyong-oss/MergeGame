@@ -5,7 +5,6 @@ import { OrderManager } from './order/OrderManager';
 import { ResourceManager } from './resource/ResourceManager';
 import { EventManager } from './core/EventManager';
 import { setGameContext } from './core/GameContext';
-import { MultiplierButton } from './MultiplierButton';
 import { OrderCard } from './order/OrderCard';
 // 注意：不直接 import AccountPanel / OrderPanel，避免循环依赖
 // GameManager → OrderPanel → OrderManager → GameManager
@@ -49,12 +48,13 @@ export class GameManager extends Component {
     private _bgSprite: Sprite | null = null;
 
     // ========== 倍数功能 ==========
-    /** 倍数档位，循环切换 */
-    private static readonly MULTIPLIERS = [1, 2, 4, 8, 16];
+    /** 倍数档位，循环切换：x1 → x2 → x4 → x1 */
+    private static readonly MULTIPLIERS = [1, 2, 4];
+    /** 账号区域Y坐标（往下调就减小这个值） */
+    private static readonly ACCOUNT_PANEL_Y = 840;
     /** 当前倍数索引 */
     private _multiplierIndex = 0;
     /** 倍数按钮节点 */
-    private _multiplierButton: Node | null = null;
 
     /**
      * 当前倍数（1/2/4/8）
@@ -101,7 +101,7 @@ export class GameManager extends Component {
             return;
         }
 
-        // 查找 GameContent 统一容器（在编辑器中创建，背景 + Debug棋盘 + 物品棋盘，统一缩放）
+        // 查找 GameContent 统一容器（在编辑器中创建，背景 + 棋盘网格 + 物品棋盘，统一缩放）
         const gameContent = this.getGameContent();
         if (!gameContent) {
             console.error('[GameManager] GameContent 节点未找到！请在编辑器 Canvas 下创建名为 GameContent 的空节点，并把 BoardPanel 拖进去');
@@ -112,13 +112,13 @@ export class GameManager extends Component {
         this.createBackground(gameContent);
         this.loadBackground();
 
-        // 创建 DebugBoard 节点（GameContent 子节点，位于 Background 之上、BoardPanel 之下）
-        const debugBoard = this.createDebugBoard(gameContent);
+        // 创建 BoardGrid 节点（GameContent 子节点，位于 Background 之上、BoardPanel 之下）
+        const boardGrid = this.createBoardGrid(gameContent);
 
         // 将 BoardPanel 节点传给 BoardManager，棋盘全部渲染到此节点下
-        // debugBoard 作为 Debug 棋盘的视觉节点，与 BoardPanel 分离
+        // boardGrid 作为棋盘网格的视觉节点，与 BoardPanel 分离
         this._boardManager = new BoardManager();
-        this._boardManager.initialize(this.boardPanel, debugBoard);
+        this._boardManager.initialize(this.boardPanel, boardGrid);
 
         // 初始化物品管理器（传入 BoardManager，避免循环依赖）
         ItemManager.instance.init(this.itemPrefab, this.boardPanel, this._boardManager);
@@ -154,7 +154,7 @@ export class GameManager extends Component {
      * Canvas
      * ├── GameContent (1080×1920, anchor 0.5,0.5, position 0,0)
      * │   ├── Background        ← 稍后由代码创建
-     * │   ├── DebugBoard        ← 稍后由代码创建
+     * │   ├── BoardGrid        ← 稍后由代码创建
      * │   └── BoardPanel        ← 编辑器中拖入
      * ├── AccountPanel
      * ├── OrderPanel
@@ -194,7 +194,7 @@ export class GameManager extends Component {
      *
      * GameContent (1080×1920, 等比缩放)
      * ├── Background        ← 背景 PNG，siblingIndex=0
-     * ├── DebugBoard        ← 半透明 Graphics 辅助网格
+     * ├── BoardGrid        ← 半透明 Graphics 棋盘网格
      * └── BoardPanel        ← 发射器 / 物品节点
      */
     private createBackground(gameContent: Node): void {
@@ -213,24 +213,24 @@ export class GameManager extends Component {
     }
 
     /**
-     * 创建 DebugBoard 节点（GameContent 子节点）
+     * 创建 BoardGrid 节点（GameContent 子节点）
      * 位于 Background 之上、BoardPanel 之下
      * BoardManager 的 Graphics 辅助网格会画到这个节点上
      */
-    private createDebugBoard(gameContent: Node): Node {
-        const debugNode = new Node('DebugBoard');
-        const transform = debugNode.addComponent(UITransform);
-        // DebugBoard 尺寸与棋盘一致，位置与 BoardPanel 相同
+    private createBoardGrid(gameContent: Node): Node {
+        const gridNode = new Node('BoardGrid');
+        const transform = gridNode.addComponent(UITransform);
+        // BoardGrid 尺寸与棋盘一致，位置与 BoardPanel 相同
         transform.setContentSize(1050, 1350);
         transform.setAnchorPoint(0.5, 0.5);
 
-        debugNode.setParent(gameContent); // GameContent 子节点
-        // 与 BoardPanel 同位置，确保 Debug 网格跟随棋盘移动
+        gridNode.setParent(gameContent); // GameContent 子节点
+        // 与 BoardPanel 同位置，确保棋盘网格跟随棋盘移动
         if (this.boardPanel) {
-            debugNode.setPosition(this.boardPanel.position);
-            debugNode.setSiblingIndex(this.boardPanel.getSiblingIndex());
+            gridNode.setPosition(this.boardPanel.position);
+            gridNode.setSiblingIndex(this.boardPanel.getSiblingIndex());
         }
-        return debugNode;
+        return gridNode;
     }
 
     /**
@@ -264,9 +264,19 @@ export class GameManager extends Component {
             const accountNode = new Node('AccountPanel');
             accountNode.addComponent('AccountPanel' as any);
             accountNode.setParent(canvas);
-            accountNode.setPosition(new Vec3(0, 880, 0));
+            accountNode.setPosition(new Vec3(0, GameManager.ACCOUNT_PANEL_Y, 0));
             this.accountPanel = accountNode;
-            console.log('[GameManager] AccountPanel created at y=880');
+            // 延迟初始化倍率按钮（等 AccountPanel.onLoad 执行完）
+            this.scheduleOnce(() => {
+                const accountComp = accountNode.getComponent('AccountPanel' as any);
+                if (accountComp && accountComp.getMultiplierButton) {
+                    const btnComp = accountComp.getMultiplierButton();
+                    if (btnComp) {
+                        btnComp.setMultiplier(this.currentMultiplier);
+                    }
+                }
+            }, 0.1);
+            console.log(`[GameManager] AccountPanel created at y=${GameManager.ACCOUNT_PANEL_Y}`);
         }
 
         // 2. OrderPanel —— 顶部下方
@@ -286,56 +296,37 @@ export class GameManager extends Component {
             this.effectLayer = effectNode;
         }
 
-        // 4. MultiplierButton —— 倍数按钮，放 OrderPanel 右边
-        if (!this._multiplierButton) {
-            const btnNode = new Node('MultiplierButton');
-            btnNode.addComponent(MultiplierButton);
-            btnNode.setParent(canvas);
-            btnNode.setPosition(new Vec3(420, 880, 0));
-            this._multiplierButton = btnNode;
-            // 初始化按钮显示当前倍数
-            const btnComp = btnNode.getComponent(MultiplierButton);
-            if (btnComp) {
-                btnComp.setMultiplier(this.currentMultiplier);
-            }
-            console.log('[GameManager] MultiplierButton created at (420, 880)');
-        }
     }
 
     /**
-     * 生成测试物品（5 个发射器）
+     * 生成初始物品（5 个发射器，随机散落在棋盘各个位置，不重叠）
      */
     private spawnTestItems(): void {
-        console.log('[GameManager] spawning test generators');
+        console.log('[GameManager] spawning initial generators (random positions)');
 
-        // (1,4) 背包发射器
-        const backpack = ItemManager.instance.spawnItem('bp_generator', 1, 4);
-        if (backpack) {
-            console.log('[GameManager] spawned bp_generator at col=1, row=4');
+        // 生成所有格子坐标，随机打乱后取前5个，保证5个发射器不重叠且随机分布
+        const allCells: { col: number; row: number }[] = [];
+        for (let col = 0; col < BoardManager.COLS; col++) {
+            for (let row = 0; row < BoardManager.ROWS; row++) {
+                allCells.push({ col, row });
+            }
         }
-
-        // (2,4) 蔬菜篮
-        const vegetable = ItemManager.instance.spawnItem('veg_generator', 2, 4);
-        if (vegetable) {
-            console.log('[GameManager] spawned veg_generator at col=2, row=4');
+        // Fisher-Yates 洗牌
+        for (let i = allCells.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = allCells[i];
+            allCells[i] = allCells[j];
+            allCells[j] = temp;
         }
+        const positions = allCells.slice(0, 5);
 
-        // (3,4) 帐篷
-        const tent = ItemManager.instance.spawnItem('tent_generator', 3, 4);
-        if (tent) {
-            console.log('[GameManager] spawned tent at col=3, row=4');
-        }
-
-        // (4,4) 蓝莓发射器
-        const blueberry = ItemManager.instance.spawnItem('berry_generator', 4, 4);
-        if (blueberry) {
-            console.log('[GameManager] spawned berry_generator at col=4, row=4');
-        }
-
-        // (5,4) 果酱发射器
-        const jam = ItemManager.instance.spawnItem('jam_generator', 5, 4);
-        if (jam) {
-            console.log('[GameManager] spawned jam_generator at col=5, row=4');
+        const generatorIds = ['bp_generator', 'veg_generator', 'tent_generator', 'berry_generator', 'jam_generator'];
+        for (let i = 0; i < generatorIds.length; i++) {
+            const pos = positions[i];
+            const item = ItemManager.instance.spawnItem(generatorIds[i], pos.col, pos.row);
+            if (item) {
+                console.log(`[GameManager] spawned ${generatorIds[i]} at col=${pos.col}, row=${pos.row}`);
+            }
         }
     }
 

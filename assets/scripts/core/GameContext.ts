@@ -13,6 +13,7 @@ export interface GameContextShape {
     readonly boardManager: BoardManager | null;
     readonly boardPanel: Node | null;
     readonly orderPanel: Node | null;
+    readonly accountPanel: Node | null;
 }
 
 /** 全局游戏上下文引用，由 GameManager 在 onLoad 时注册 */

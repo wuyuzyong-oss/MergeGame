@@ -1,7 +1,9 @@
-import { _decorator, Component, Node, Vec3, UITransform, ScrollView, Mask, Layout } from 'cc';
+import { _decorator, Component, Node, Vec3, UITransform, ScrollView, Mask, Layout, Sprite, SpriteFrame, Texture2D, resources, tween } from 'cc';
 import { OrderManager, OrderCheckResult } from '../order/OrderManager';
 import { OrderCard } from '../order/OrderCard';
 import { EventManager } from '../core/EventManager';
+import { ResourceManager } from '../resource/ResourceManager';
+import { getGameContext } from '../core/GameContext';
 
 const { ccclass, property } = _decorator;
 
@@ -25,26 +27,47 @@ export class OrderPanel extends Component {
     /** 订单面板在屏幕上的位置X（相对于Canvas中心） */
     public static readonly POSITION_X = 0;
     /** 订单面板底部在屏幕上的位置Y（相对于Canvas中心，正值=向上，面板从这里向上延伸） */
-    public static readonly POSITION_Y = 500;
+    public static readonly POSITION_Y = 400;
 
     /** 面板总宽度（一般等于屏幕宽度1080，不影响可视区域） */
     private static readonly PANEL_WIDTH = 1080;
     /** 面板总高度（等于可视区域高度，底部对齐后不需要额外空间） */
-    private static readonly PANEL_HEIGHT = 400;
+    private static readonly PANEL_HEIGHT = 430;
 
     /** 可视区域宽度（一屏显示几个卡片由这个决定，卡片宽300+间距40，760约2个半） */
     private static readonly VIEW_WIDTH = 1080;
     /** 可视区域高度（卡片高133+NPC超出部分，约170） */
-    private static readonly VIEW_HEIGHT = 400;
+    private static readonly VIEW_HEIGHT = 350;
 
     /** 卡片之间的间距 */
     private static readonly CARD_SPACING = 30;
     /** 底部边距（卡片离面板底部的距离，对勾超出卡片底部时调大这个值，当前对勾超出约34px，设40刚好） */
     private static readonly BOTTOM_PADDING = 20;
 
+    // ==================== 金币飞行动画配置 ====================
+    /** 金币数量 */
+    private static readonly COIN_COUNT = 10;
+    /** 金币尺寸 */
+    private static readonly COIN_SIZE = 60;
+    /** 金币散落范围X（相对于订单位置） */
+    private static readonly COIN_SCATTER_X = 80;
+    /** 金币散落范围Y（向下，相对于订单位置） */
+    private static readonly COIN_SCATTER_Y = 60;
+    /** 每个金币出现的间隔（从少到多） */
+    private static readonly COIN_SPAWN_INTERVAL = 0.07;
+    /** 金币出现动画时长（从小到大缩放） */
+    private static readonly COIN_SPAWN_DURATION = 0.2;
+    /** 金币飞向终点的时长 */
+    private static readonly COIN_FLY_DURATION = 0.5;
+    /** 金币icon图片路径 */
+    private static readonly COIN_ICON_PATH = 'textures/ui/coin_icon';
+
     private _scrollView: ScrollView | null = null;
     private _contentNode: Node | null = null;
     private _cards: OrderCard[] = [];
+
+    /** 金币icon缓存（静态，所有实例共享） */
+    private static _coinSpriteFrame: SpriteFrame | null = null;
 
     onLoad() {
         this.node.setPosition(OrderPanel.POSITION_X, OrderPanel.POSITION_Y, 0);
@@ -209,6 +232,112 @@ export class OrderPanel extends Component {
             callback();
         }
     }
+
+    // ==================== 金币飞行动画 ====================
+
+    /**
+     * 加载金币icon（静态缓存 + 子路径/主路径双重容错）
+     */
+    private loadCoinIcon(callback: (sf: SpriteFrame | null) => void): void {
+        if (OrderPanel._coinSpriteFrame) {
+            callback(OrderPanel._coinSpriteFrame);
+            return;
+        }
+        const tryLoad = (path: string, onFail: () => void) => {
+            resources.load(path, Texture2D, (err, texture) => {
+                if (err || !texture) { onFail(); return; }
+                const sf = new SpriteFrame();
+                sf.texture = texture;
+                OrderPanel._coinSpriteFrame = sf;
+                callback(sf);
+            });
+        };
+        tryLoad(OrderPanel.COIN_ICON_PATH, () => {
+            tryLoad(`${OrderPanel.COIN_ICON_PATH}/texture`, () => {
+                console.warn(`[OrderPanel] 金币icon加载失败: ${OrderPanel.COIN_ICON_PATH}`);
+                callback(null);
+            });
+        });
+    }
+
+    /**
+     * 播放金币飞行动画
+     * 订单消失的同时，从订单位置散落10个金币，按顺序飞向账号区域金币位置
+     * 每个金币到达后消失，同时金币数字涨 reward/10
+     * @param startPos 起点世界坐标（订单卡片位置，需在订单消失前获取）
+     * @param reward 订单奖励金币总数
+     * @param callback 所有金币散落完成后的回调（立即补充订单）
+     */
+    public playCoinFlyAnimation(startPos: Vec3, reward: number, callback: () => void): void {
+        // 1. 起点（直接使用传入的订单卡片世界坐标，避免订单消失后找不到）
+        const startWorldPos = startPos;
+
+        // 2. 获取终点（账号区域金币世界坐标）
+        const accountPanelNode = getGameContext()?.accountPanel ?? null;
+        const accountPanel = accountPanelNode ? accountPanelNode.getComponent('AccountPanel' as any) : null;
+        const endWorldPos = accountPanel?.getGoldWorldPosition();
+        if (!endWorldPos) {
+            ResourceManager.instance.addGold(reward);
+            callback();
+            return;
+        }
+
+        // 3. 转换成 OrderPanel 本地坐标（金币挂在 OrderPanel 节点下，不被 ScrollView Mask 裁剪）
+        const uiTransform = this.node.getComponent(UITransform);
+        const startLocalPos = uiTransform ? uiTransform.convertToNodeSpaceAR(startWorldPos) : startWorldPos.clone();
+        const endLocalPos = uiTransform ? uiTransform.convertToNodeSpaceAR(endWorldPos) : endWorldPos.clone();
+
+        // 4. 加载金币icon后创建10个金币
+        this.loadCoinIcon((coinSF) => {
+            const coinCount = OrderPanel.COIN_COUNT;
+            const goldPerCoin = reward / coinCount;
+            let spawnedCount = 0;  // 散落完成的金币数
+            let callbackFired = false;
+
+            for (let i = 0; i < coinCount; i++) {
+                const coinNode = new Node('FlyCoin');
+                const transform = coinNode.addComponent(UITransform);
+                const sprite = coinNode.addComponent(Sprite);
+                // 关键：先设置 sizeMode=CUSTOM，再设置 spriteFrame，否则设置图片时会自动把 contentSize 改成图片原始尺寸
+                sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+                if (coinSF) { sprite.spriteFrame = coinSF; }
+                // 设置图片后再确认一次 contentSize，防止被覆盖
+                transform.setContentSize(OrderPanel.COIN_SIZE, OrderPanel.COIN_SIZE);
+                coinNode.setParent(this.node);
+                coinNode.setPosition(startLocalPos);
+                coinNode.setScale(0, 0, 0);
+
+                // 散落位置：订单下方随机偏移
+                const scatterX = startLocalPos.x + (Math.random() - 0.5) * OrderPanel.COIN_SCATTER_X;
+                const scatterY = startLocalPos.y - OrderPanel.COIN_SCATTER_Y * (0.5 + Math.random() * 0.5);
+                const scatterPos = new Vec3(scatterX, scatterY, 0);
+
+                // 动画：延迟出现（从少到多）→ 从小到大缩放+散落 → 全部散落完成就补充订单 → 飞向终点 → 到达后消失+加金币
+                tween(coinNode)
+                    .delay(i * OrderPanel.COIN_SPAWN_INTERVAL)
+                    .parallel(
+                        tween().to(OrderPanel.COIN_SPAWN_DURATION, { scale: new Vec3(1, 1, 1) }),
+                        tween().to(OrderPanel.COIN_SPAWN_DURATION, { position: scatterPos })
+                    )
+                    .call(() => {
+                        // 这个金币散落完成了
+                        spawnedCount++;
+                        if (spawnedCount >= coinCount && !callbackFired) {
+                            callbackFired = true;
+                            callback();  // 所有金币都散落完成，立即补充订单
+                        }
+                    })
+                    .to(OrderPanel.COIN_FLY_DURATION, { position: endLocalPos })
+                    .call(() => {
+                        // 到达终点后消失+加金币（不影响订单补充）
+                        if (coinNode.isValid) { coinNode.destroy(); }
+                        ResourceManager.instance.addGold(goldPerCoin);
+                    })
+                    .start();
+            }
+        });
+    }
+
     // ==================== 订单操作 ====================
 
     private handleCompleteOrder(orderId: string): void {

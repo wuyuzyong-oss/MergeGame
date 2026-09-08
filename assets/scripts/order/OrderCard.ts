@@ -56,7 +56,7 @@ export class OrderCard {
     /** 金币区域中心Y（相对于卡片中心，正值=向上，负值=向下） */
     private static readonly REWARD_Y = 90;
     /** 半透明矩形底色宽度 */
-    private static readonly REWARD_WIDTH = 130;
+    private static readonly REWARD_WIDTH = 140;
     /** 半透明矩形底色高度 */
     private static readonly REWARD_HEIGHT = 45;
     /** 底色透明度（0=完全透明，255=完全不透明） */
@@ -66,7 +66,7 @@ export class OrderCard {
     /** 金币icon显示大小（强制缩放，不管原图分辨率） */
     private static readonly COIN_SIZE = 40;
     /** 金币数字字号 */
-    private static readonly REWARD_FONT_SIZE = 28;
+    private static readonly REWARD_FONT_SIZE = 32;
     /** 金币icon图片路径（放在 assets/resources/textures/ui/coin_icon.png，导入类型选texture） */
     private static readonly COIN_ICON_PATH = 'textures/ui/coin_icon';
 
@@ -80,6 +80,8 @@ export class OrderCard {
     private static readonly BTN_HEIGHT = 66;
     /** 完成按钮icon图片路径（放在 assets/resources/textures/ui/complete_btn.png，导入类型选texture） */
     private static readonly COMPLETE_BTN_ICON_PATH = 'textures/ui/complete_btn';
+    /** 订单消失动画时长（秒） */
+    private static readonly DISAPPEAR_DURATION = 0.5;
 
     // ==================== 缓存 ====================
 
@@ -100,13 +102,52 @@ export class OrderCard {
     public static readonly NPC_IDS: string[] = ['npc_01', 'npc_02', 'npc_03', 'npc_04', 'npc_05', 'npc_06', 'npc_07'];
 
     /**
-     * 后台预加载所有NPC的序列帧（游戏启动时调用，避免订单显示时才加载导致卡顿）
+     * 后台预加载所有NPC的第一帧（游戏启动时调用，避免订单显示时才加载第一帧导致空白）
+     * 只预加载第一帧，不加载所有帧（197MB全部预加载会导致启动很慢）
      */
     public static preloadAllNPCs(): void {
         for (const npcId of OrderCard.NPC_IDS) {
-            OrderCard.loadNPCFrames(npcId, () => {});
+            OrderCard.loadNPCFirstFrame(npcId, () => {});
         }
-        console.log('[OrderCard] preloading all NPC frames in background...');
+        console.log('[OrderCard] preloading all NPC first frames in background...');
+    }
+
+    /**
+     * 加载NPC第一帧（单独加载 first.png，用于快速显示，不需要等所有帧加载完成）
+     * 三重容错：SpriteFrame → Texture2D+new SpriteFrame → ${path}/texture
+     */
+    private static loadNPCFirstFrame(npcId: string, callback: (sf: SpriteFrame | null) => void): void {
+        const path = `textures/npc/${npcId}/first`;
+        // 方式1：直接加载 SpriteFrame（图片导入类型为sprite-frame时）
+        resources.load(path, SpriteFrame, (err, sf) => {
+            if (!err && sf) {
+                console.log(`[OrderCard] NPC ${npcId} first frame loaded (SpriteFrame)`);
+                callback(sf);
+                return;
+            }
+            // 方式2：加载 Texture2D，手动创建 SpriteFrame（图片导入类型为texture时）
+            resources.load(path, Texture2D, (err2, texture) => {
+                if (!err2 && texture) {
+                    const newSF = new SpriteFrame();
+                    newSF.texture = texture;
+                    console.log(`[OrderCard] NPC ${npcId} first frame loaded (Texture2D)`);
+                    callback(newSF);
+                    return;
+                }
+                // 方式3：尝试子路径 ${path}/texture（Cocos Creator 3.x 某些版本需要）
+                resources.load(`${path}/texture`, Texture2D, (err3, texture2) => {
+                    if (!err3 && texture2) {
+                        const newSF2 = new SpriteFrame();
+                        newSF2.texture = texture2;
+                        console.log(`[OrderCard] NPC ${npcId} first frame loaded (subpath)`);
+                        callback(newSF2);
+                        return;
+                    }
+                    console.warn(`[OrderCard] NPC ${npcId} first frame NOT found: ${path}`);
+                    callback(null);
+                });
+            });
+        });
     }
 
     // ==================== 实例字段 ====================
@@ -399,7 +440,7 @@ export class OrderCard {
         // 用数值对象tween，在onUpdate里手动设置scale，避免直接tween Vec3属性的兼容性问题
         const scaleObj = { s: 1 };
         tween(scaleObj)
-            .to(0.3, { s: 0.05 }, {
+            .to(OrderCard.DISAPPEAR_DURATION, { s: 0.05 }, {
                 onUpdate: (target: any, ratio: number) => {
                     if (this.node && this.node.isValid) {
                         this.node.setScale(target.s, target.s, 1);
@@ -550,7 +591,9 @@ export class OrderCard {
             }
             // 按文件名排序（01.png, 02.png, ...）
             textures.sort((a, b) => a.name.localeCompare(b.name));
-            const frames = textures.map(tex => {
+            // 过滤掉 first.png（第一帧占位图，不参与动画播放）
+            const filteredTextures = textures.filter(t => t.name !== 'first');
+            const frames = filteredTextures.map(tex => {
                 const sf = new SpriteFrame();
                 sf.texture = tex;
                 return sf;
@@ -575,6 +618,15 @@ export class OrderCard {
         if (!npcId || !this._npcSprite) return;
 
         this._currentNPCId = npcId;
+
+        // 先加载第一帧，立即显示（不需要等所有帧加载完成，解决NPC出现慢的问题）
+        OrderCard.loadNPCFirstFrame(npcId, (firstFrame) => {
+            if (firstFrame && this._npcSprite && this._npcSprite.node && this._npcSprite.node.isValid) {
+                this._npcSprite.spriteFrame = firstFrame;
+            }
+        });
+
+        // 后台加载所有帧，加载完成后开始播放动画
         OrderCard.loadNPCFrames(npcId, (frames) => {
             if (frames.length === 0 || !this._npcSprite || !this._npcSprite.node || !this._npcSprite.node.isValid) return;
 

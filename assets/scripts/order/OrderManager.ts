@@ -143,11 +143,27 @@ export class OrderManager {
         this.animateItemsToOrder(itemsToRemove, targetWorldPos, () => {
             // 飞行完成后，物品先快速消失（0.1秒缩放），然后订单再消失
             this.animateItemsDisappear(itemsToRemove, () => {
-                // 物品消失后，播放订单卡片缩放消失动画
+                // 物品消失后，同时播放订单卡片缩放消失动画和金币飞行动画
                 if (orderPanel) {
-                    orderPanel.playCardDisappear(order.id, () => {
-                        this.finalizeCompleteOrder(order, itemsToRemove);
-                    });
+                    // 先获取订单卡片的世界坐标（在订单消失前，否则卡片移除后找不到）
+                    const cardWorldPos = orderPanel.getCardWorldPosition(order.id);
+                    if (cardWorldPos) {
+                        // 同时开始：订单消失动画 + 金币飞行动画
+                        orderPanel.playCardDisappear(order.id, () => {
+                            // 订单消失完成（卡片已从数组移除），不需要额外处理
+                        });
+                        // 金币散落完成后，延迟一会儿再补充订单，避免补充太快
+                        orderPanel.playCoinFlyAnimation(cardWorldPos, order.reward, () => {
+                            setTimeout(() => {
+                                this.finalizeCompleteOrder(order, itemsToRemove);
+                            }, OrderManager.ORDER_REFILL_DELAY * 1000);
+                        });
+                    } else {
+                        // 找不到订单位置，直接 finalize
+                        orderPanel.playCardDisappear(order.id, () => {
+                            this.finalizeCompleteOrder(order, itemsToRemove);
+                        });
+                    }
                 } else {
                     this.finalizeCompleteOrder(order, itemsToRemove);
                 }
@@ -158,8 +174,9 @@ export class OrderManager {
     }
 
     /**
-     * 完成订单的最终处理（物品销毁、加金币、补充订单、发事件）
-     * 在物品飞行和订单消失动画完成后调用
+     * 完成订单的最终处理（物品销毁、补充订单、发事件）
+     * 注意：金币已在金币飞行动画中逐步增加，这里不再加金币
+     * 在物品飞行、订单消失和金币飞行动画完成后调用
      */
     private finalizeCompleteOrder(order: OrderData, itemsToRemove: { itemData: ItemData; node: Node }[]): void {
         for (const { node } of itemsToRemove) {
@@ -168,11 +185,10 @@ export class OrderManager {
             }
         }
 
-        ResourceManager.instance.addGold(order.reward);
         this.refreshOrder(order);
         EventManager.instance.emit(EventManager.ORDER_CHANGED);
 
-        console.log(`[Order] Complete: ${order.id}, reward +${order.reward} gold`);
+        console.log(`[Order] Complete: ${order.id}, reward +${order.reward} gold (via coin fly animation)`);
     }
     /**
      * 将命中的订单移到最前面

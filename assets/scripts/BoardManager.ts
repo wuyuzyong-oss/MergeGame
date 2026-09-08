@@ -16,19 +16,19 @@ export class BoardManager {
     // 棋盘格子间距 
     private readonly CELL_SPACING = 0;
 
-    // ========= Debug 棋盘可调参数 =========
-    /** 是否显示半透明 Debug 棋盘（用于与背景图对齐） */
-    public static SHOW_DEBUG_BOARD = true;
-    /** Debug 棋盘填充透明度 (0-255) */
-    public static DEBUG_ALPHA = 10;
-    /** Debug 棋盘整体 X 偏移（像素） */
+    // ========= 棋盘网格可调参数 =========
+    /** 是否显示半透明棋盘网格（用于与背景图对齐） */
+    public static SHOW_BOARD_GRID = true;
+    /** 棋盘网格填充透明度 (0-255) */
+    public static BOARD_GRID_ALPHA = 10;
+    /** 棋盘整体 X 偏移（像素），物品和网格同步偏移 */
     public static BOARD_OFFSET_X = 0;
-    /** Debug 棋盘整体 Y 偏移（像素） */
-    public static BOARD_OFFSET_Y = 0;
+    /** 棋盘整体 Y 偏移（像素），物品和网格同步偏移 */
+    public static BOARD_OFFSET_Y = -70;
     // ======================================
 
     private _boardRoot: Node | null = null;
-    private _debugRoot: Node | null = null;
+    private _gridRoot: Node | null = null;
     private _graphics: Graphics | null = null;
     private _cells: Cell[] = [];
 
@@ -38,14 +38,14 @@ export class BoardManager {
 
     /**
      * @param boardRoot  棋盘逻辑根节点（物品挂到此节点下）
-     * @param debugRoot  可选，Debug 棋盘视觉节点（Graphics 画到此节点上）
+     * @param gridRoot  可选，棋盘网格视觉节点（Graphics 画到此节点上）
      *                   如果不传，则使用 boardRoot
      */
-    public initialize(boardRoot: Node, debugRoot?: Node): void {
+    public initialize(boardRoot: Node, gridRoot?: Node): void {
         this._boardRoot = boardRoot;
-        this._debugRoot = debugRoot ?? boardRoot;
+        this._gridRoot = gridRoot ?? boardRoot;
         this.createCells();
-        this.drawDebugBoard();
+        this.drawBoardGrid();
         console.log('BoardManager initialized');
         console.log(`Board created: ${BoardManager.COLS} x ${BoardManager.ROWS}`);
         console.log(`Cell count: ${BoardManager.TOTAL_CELLS}`);
@@ -153,8 +153,8 @@ export class BoardManager {
 
         const totalWidth = this.getTotalWidth();
         const totalHeight = this.getTotalHeight();
-        const startX = -totalWidth / 2;
-        const startY = totalHeight / 2;
+        const startX = -totalWidth / 2 + BoardManager.BOARD_OFFSET_X;
+        const startY = totalHeight / 2 + BoardManager.BOARD_OFFSET_Y;
         const step = BoardManager.CELL_SIZE + this.CELL_SPACING;
 
         const col = Math.floor((localX - startX) / step);
@@ -175,22 +175,22 @@ export class BoardManager {
     }
 
     /**
-     * 绘制半透明 Debug 棋盘（开发辅助，不参与游戏逻辑）
+     * 绘制半透明棋盘网格（正式功能，与背景图对齐）
      * 用于与背景 PNG 中的棋盘格进行视觉对齐
-     * 通过 SHOW_DEBUG_BOARD / DEBUG_ALPHA / BOARD_OFFSET_X / BOARD_OFFSET_Y 调节
+     * 通过 SHOW_BOARD_GRID / BOARD_GRID_ALPHA / BOARD_OFFSET_X / BOARD_OFFSET_Y 调节
      */
-    private drawDebugBoard(): void {
-        if (!this._debugRoot) return;
-        if (!BoardManager.SHOW_DEBUG_BOARD) {
-            console.log('[BoardManager] Debug board hidden (SHOW_DEBUG_BOARD=false)');
+    private drawBoardGrid(): void {
+        if (!this._gridRoot) return;
+        if (!BoardManager.SHOW_BOARD_GRID) {
+            console.log('[BoardManager] Board grid hidden (SHOW_BOARD_GRID=false)');
             return;
         }
 
-        this._graphics = this._debugRoot.addComponent(Graphics);
+        this._graphics = this._gridRoot.addComponent(Graphics);
 
         const ox = BoardManager.BOARD_OFFSET_X;
         const oy = BoardManager.BOARD_OFFSET_Y;
-        const alpha = BoardManager.DEBUG_ALPHA;
+        const alpha = BoardManager.BOARD_GRID_ALPHA;
 
         const totalWidth = this.getTotalWidth();
         const totalHeight = this.getTotalHeight();
@@ -214,14 +214,14 @@ export class BoardManager {
         this._graphics.fillColor = new Color(0, 0, 0, alpha); // 黑色半透明
         this._graphics.fill();
 
-        console.log(`[BoardManager] Debug board drawn (alpha=${alpha}, cornerRadius=${cornerRadius})`);
+        console.log(`[BoardManager] Board grid drawn (alpha=${alpha}, cornerRadius=${cornerRadius})`);
     }
 
     private calculateCellLocalPosition(col: number, row: number): Vec2 {
         const totalWidth = this.getTotalWidth();
         const totalHeight = this.getTotalHeight();
-        const startX = -totalWidth / 2;
-        const startY = totalHeight / 2;
+        const startX = -totalWidth / 2 + BoardManager.BOARD_OFFSET_X;
+        const startY = totalHeight / 2 + BoardManager.BOARD_OFFSET_Y;
         const step = BoardManager.CELL_SIZE + this.CELL_SPACING;
 
         const x = startX + col * step + BoardManager.CELL_SIZE / 2;
