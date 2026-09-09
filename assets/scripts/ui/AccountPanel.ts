@@ -80,6 +80,14 @@ export class AccountPanel extends Component {
     /** 倍率按钮Y位置 */
     private static readonly MULTIPLIER_Y = 0;
 
+    // ==================== 金币爆发特效常量 ====================
+    /** 金币爆发序列帧路径 */
+    private static readonly COIN_BURST_PATH = 'textures/effect/coin_burst';
+    /** 爆发动画帧率（FPS） */
+    private static readonly BURST_FPS = 16;
+    /** 爆发特效整体缩放 */
+    private static readonly BURST_SCALE = 2;
+
     // ==================== 成员变量 ====================
 
     private _avatarSprite: Sprite | null = null;
@@ -125,6 +133,76 @@ export class AccountPanel extends Component {
             return this._goldIconNode.getWorldPosition();
         }
         return null;
+    }
+
+    /**
+     * 播放金币爆发特效（光环+星星序列帧，一次性播放，播完自动销毁）
+     * 在第一个金币飞到账号金币icon消失时调用
+     * @param worldPos 特效播放的世界坐标（金币icon位置）
+     */
+    public playCoinBurstEffect(worldPos: Vec3): void {
+        const burstNode = new Node('CoinBurstEffect');
+        const transform = burstNode.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+
+        const sprite = burstNode.addComponent(Sprite);
+        sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        sprite.type = Sprite.Type.SIMPLE;
+
+        burstNode.setScale(AccountPanel.BURST_SCALE, AccountPanel.BURST_SCALE, 1);
+
+        // 转换世界坐标到 AccountPanel 本地坐标
+        const uiTransform = this.node.getComponent(UITransform);
+        if (uiTransform) {
+            const localPos = uiTransform.convertToNodeSpaceAR(worldPos);
+            burstNode.setPosition(localPos);
+        } else {
+            burstNode.setPosition(0, 0, 0);
+        }
+
+        burstNode.setParent(this.node);
+
+        // 透明PNG用默认混合模式，不需要额外设置
+
+        // 加载序列帧（用 Texture2D 加载，兼容图片导入类型为 texture 的情况），顺序播放完整一次，播完销毁
+        resources.loadDir(AccountPanel.COIN_BURST_PATH, Texture2D, (err, textures) => {
+            if (err || !textures || textures.length === 0) {
+                console.warn(`[AccountPanel] 金币爆发序列帧加载失败: ${AccountPanel.COIN_BURST_PATH}，请将PNG序列放入该目录`);
+                if (burstNode.isValid) burstNode.destroy();
+                return;
+            }
+            // 按文件名排序
+            textures.sort((a, b) => a.name.localeCompare(b.name));
+            const frames = textures.map(tex => {
+                const sf = new SpriteFrame();
+                sf.texture = tex;
+                return sf;
+            });
+
+            let frameIndex = 0;
+            const totalFrames = frames.length;
+            const frameInterval = 1.0 / AccountPanel.BURST_FPS;
+
+            // 显示第一帧
+            sprite.spriteFrame = frames[0];
+
+            // 用 setInterval 驱动序列帧播放
+            const timer = window.setInterval(() => {
+                if (!burstNode.isValid) {
+                    clearInterval(timer);
+                    return;
+                }
+                frameIndex++;
+                if (frameIndex >= totalFrames) {
+                    clearInterval(timer);
+                    burstNode.destroy();
+                    return;
+                }
+                sprite.spriteFrame = frames[frameIndex];
+            }, frameInterval * 1000);
+
+            console.log(`[AccountPanel] 金币爆发序列帧播放: ${totalFrames} 帧`);
+        });
     }
 
     // ==================== UI 构建 ====================
@@ -378,11 +456,11 @@ export class AccountPanel extends Component {
     }
 
     /**
-     * 数字格式化：>=1000 显示 k 格式（保留1位小数），否则显示原始数字
-     * 例：999 -> "999"，1000 -> "1.0k"，8900 -> "8.9k"
+     * 数字格式化：>=10000 显示 k 格式（保留1位小数），否则显示原始数字
+     * 例：9999 -> "9999"，10000 -> "10.0k"，89000 -> "89.0k"
      */
     private formatNumber(value: number): string {
-        if (value >= 1000) {
+        if (value >= 10000) {
             return (value / 1000).toFixed(1) + 'k';
         }
         return `${value}`;

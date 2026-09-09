@@ -1,5 +1,6 @@
 import { _decorator, Component, Node, Vec3, Graphics, Color, Label, UITransform, EventTouch, resources, Font } from 'cc';
 import { EventManager } from './core/EventManager';
+import { AudioManager } from './AudioManager';
 // 注意：不直接 import GameManager，避免循环依赖
 // MultiplierButton 通过事件通知 GameManager 切换倍数
 
@@ -146,6 +147,8 @@ export class MultiplierButton extends Component {
      * 点击切换倍数
      */
     private onClick(event: EventTouch): void {
+        // 播放切换倍率音效
+        AudioManager.instance.playSFX(AudioManager.SFX_MULTIPLIER_SWITCH);
         // 通过事件通知 GameManager 切换倍数，避免循环依赖
         EventManager.instance.emit(EventManager.MULTIPLIER_TOGGLE);
     }

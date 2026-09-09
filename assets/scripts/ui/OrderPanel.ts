@@ -4,6 +4,7 @@ import { OrderCard } from '../order/OrderCard';
 import { EventManager } from '../core/EventManager';
 import { ResourceManager } from '../resource/ResourceManager';
 import { getGameContext } from '../core/GameContext';
+import { AudioManager } from '../AudioManager';
 
 const { ccclass, property } = _decorator;
 
@@ -290,9 +291,11 @@ export class OrderPanel extends Component {
         // 4. 加载金币icon后创建10个金币
         this.loadCoinIcon((coinSF) => {
             const coinCount = OrderPanel.COIN_COUNT;
-            const goldPerCoin = reward / coinCount;
+            const goldPerCoin = Math.floor(reward / coinCount);  // 每个金币的整数部分
+            const lastCoinGold = reward - goldPerCoin * (coinCount - 1);  // 最后一个金币加剩余的，保证总数是整数
             let spawnedCount = 0;  // 散落完成的金币数
             let callbackFired = false;
+            let arrivedCount = 0;  // 到达终点的金币数（用于触发第一个金币到达时的爆发特效）
 
             for (let i = 0; i < coinCount; i++) {
                 const coinNode = new Node('FlyCoin');
@@ -324,6 +327,8 @@ export class OrderPanel extends Component {
                         spawnedCount++;
                         if (spawnedCount >= coinCount && !callbackFired) {
                             callbackFired = true;
+                            // 所有金币散落完成，开始飞向终点，播放金币飞行音效
+                            AudioManager.instance.playSFX(AudioManager.SFX_COIN_FLY);
                             callback();  // 所有金币都散落完成，立即补充订单
                         }
                     })
@@ -331,7 +336,15 @@ export class OrderPanel extends Component {
                     .call(() => {
                         // 到达终点后消失+加金币（不影响订单补充）
                         if (coinNode.isValid) { coinNode.destroy(); }
-                        ResourceManager.instance.addGold(goldPerCoin);
+                        // 最后一个金币加剩余的，保证总数是整数且没有小数
+                        const addAmount = (i === coinCount - 1) ? lastCoinGold : goldPerCoin;
+                        ResourceManager.instance.addGold(addAmount);
+
+                        // 第一个金币到达时，触发账号金币icon的爆发特效（光环+星星）
+                        arrivedCount++;
+                        if (arrivedCount === 1 && accountPanel && endWorldPos) {
+                            accountPanel.playCoinBurstEffect(endWorldPos);
+                        }
                     })
                     .start();
             }

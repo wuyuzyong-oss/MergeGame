@@ -1,6 +1,7 @@
 import { Node, Label, UITransform, Graphics, Color, Sprite, SpriteFrame, Texture2D, resources, tween, Vec3 } from 'cc';
 import { OrderData } from './OrderData';
 import { OrderItemReady, OrderStatus } from './OrderManager';
+import { AudioManager } from '../AudioManager';
 
 /**
  * 单个订单卡片
@@ -485,8 +486,15 @@ export class OrderCard {
         // 完成按钮
         if (this._completeBtnNode) {
             const showBtn = (status === OrderStatus.COMPLETE);
+            const wasShowing = this._completeBtnNode.active;
             this._completeBtnNode.active = showBtn;
-            if (showBtn) { this.startBtnPulse(); }
+            if (showBtn) {
+                this.startBtnPulse();
+                // 从隐藏变成显示时播放订单就绪音效
+                if (!wasShowing) {
+                    AudioManager.instance.playSFX(AudioManager.SFX_ORDER_READY);
+                }
+            }
         }
     }
 
@@ -736,6 +744,8 @@ export class OrderCard {
     private onCompleteClick(): void {
         if (!this._completeBtnNode || !this._completeBtnNode.active) return;
         this._completeBtnNode.active = false; // 点击后按钮消失
+        // 播放点击完成按钮音效
+        AudioManager.instance.playSFX(AudioManager.SFX_ORDER_COMPLETE);
         if (this._onComplete) {
             this._onComplete();
         }

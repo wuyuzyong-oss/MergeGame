@@ -14,6 +14,7 @@ export interface GameContextShape {
     readonly boardPanel: Node | null;
     readonly orderPanel: Node | null;
     readonly accountPanel: Node | null;
+    readonly currentMultiplier: number;
 }
 
 /** 全局游戏上下文引用，由 GameManager 在 onLoad 时注册 */

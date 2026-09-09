@@ -1,8 +1,9 @@
-import { _decorator, Component, Node, Vec2, Vec3, EventTouch, director, Camera, Sprite, SpriteFrame, Texture2D, UITransform, resources, tween } from 'cc';
+import { _decorator, Component, Node, Vec2, Vec3, EventTouch, director, Camera, Sprite, SpriteFrame, Texture2D, UITransform, resources, tween, Color } from 'cc';
 import { ItemManager } from './ItemManager';
 import { ItemData } from './ItemData';
 import { Cell } from './Cell';
 import { getGameContext } from './core/GameContext';
+import { EventManager } from './core/EventManager';
 import { BoardManager } from './BoardManager';
 
 const { ccclass, property } = _decorator;
@@ -64,13 +65,108 @@ export class Item extends Component {
     /** Sprite 组件引用，用于设置图片 */
     private _sprite: Sprite | null = null;
 
+    // ==================== 发射器星星特效 ====================
+    // ==================== 发射器星星特效 ====================
+    /** 发射器星星序列帧路径 */
+    private static readonly STAR_EFFECT_PATH = 'textures/effect/generator_star';
+    /** 星星特效帧率（FPS），越大播放越快 */
+    private static readonly STAR_FPS = 12;
+    /** 星星特效整体缩放 */
+    private static readonly STAR_SCALE = 1.0;
+    /** 星星特效Y偏移（相对于发射器中心，负值=在下方） */
+    private static readonly STAR_OFFSET_Y = -30;
+
+    private _starEffectNode: Node | null = null;
+    private _starSprite: Sprite | null = null;
+    private _starFrames: SpriteFrame[] = [];
+    private _starFrameIndex: number = 0;
+    private _starTimer: number = 0;
+    private _starEffectStarted: boolean = false;
+
+    // ==================== 选中特效 ====================
+    /** 选中特效序列帧路径 */
+    private static readonly SELECTED_EFFECT_PATH = 'textures/effect/item_selected';
+    /** 选中特效帧率（FPS） */
+    private static readonly SELECTED_FPS = 15;
+    /** 选中特效显示大小（像素），直接控制，不随格子大小变化 */
+    private static readonly SELECTED_SIZE = 170;
+
+    private _selectedEffectNode: Node | null = null;
+    private _selectedSprite: Sprite | null = null;
+    private _selectedFrames: SpriteFrame[] = [];
+    private _selectedFrameIndex: number = 0;
+    private _selectedTimer: number = 0;
+    private _selectedEffectLoaded: boolean = false;
+
+    // ==================== 长按连续发射 ====================
+    /** 长按触发延迟（毫秒），按住多久后开始连续发射 */
+    private static readonly LONG_PRESS_DELAY = 300;
+    /** 连续发射间隔（毫秒） */
+    private static readonly FIRE_INTERVAL = 100;
+
+    // ==================== 发射器闪电标志 ====================
+    /** 闪电标志显示大小（像素） */
+    private static readonly LIGHTNING_SIZE = 50;
+    /** 闪电标志透明度（0-255，255=完全不透明） */
+    private static readonly LIGHTNING_OPACITY = 200;
+    /** 闪电标志X偏移（相对于物品中心，正值=向右，负值=向左） */
+    private static readonly LIGHTNING_OFFSET_X = 45;
+    /** 闪电标志Y偏移（相对于物品中心，正值=向上，负值=向下） */
+    private static readonly LIGHTNING_OFFSET_Y = -45;
+    /** x1倍率闪电路径 */
+    private static readonly LIGHTNING_X1_PATH = 'textures/ui/lightning_x1';
+    /** x2倍率闪电路径 */
+    private static readonly LIGHTNING_X2_PATH = 'textures/ui/lightning_x2';
+    /** x4倍率闪电路径 */
+    private static readonly LIGHTNING_X4_PATH = 'textures/ui/lightning_x4';
+
+    private _longPressTimer: number | null = null;
+    private _fireTimer: number | null = null;
+    private _isLongPressFiring: boolean = false;
+
+    private _lightningNode: Node | null = null;
+    private _lightningSprite: Sprite | null = null;
+    private _lightningFrames: Map<number, SpriteFrame> = new Map();
+    private _onMultiplierChangedBound: ((multiplier: number) => void) | null = null;
     onLoad() {
         this.registerTouchEvents();
         this.createVisual();
+        // 监听倍率变化，切换闪电标志
+        this._onMultiplierChangedBound = (multiplier: number) => {
+            this.updateLightningIcon(multiplier);
+        };
+        EventManager.instance.on(EventManager.MULTIPLIER_CHANGED, this._onMultiplierChangedBound);
     }
 
     onDestroy() {
         this.unregisterTouchEvents();
+        this.stopLongPress();
+        // 取消倍率变化监听
+        if (this._onMultiplierChangedBound) {
+            EventManager.instance.off(EventManager.MULTIPLIER_CHANGED, this._onMultiplierChangedBound);
+            this._onMultiplierChangedBound = null;
+        }
+        // 清理星星特效
+        if (this._starEffectNode && this._starEffectNode.isValid) {
+            this._starEffectNode.destroy();
+        }
+        this._starEffectNode = null;
+        this._starSprite = null;
+        this._starFrames = [];
+        // 清理选中特效
+        if (this._selectedEffectNode && this._selectedEffectNode.isValid) {
+            this._selectedEffectNode.destroy();
+        }
+        this._selectedEffectNode = null;
+        this._selectedSprite = null;
+        this._selectedFrames = [];
+        // 清理闪电标志
+        if (this._lightningNode && this._lightningNode.isValid) {
+            this._lightningNode.destroy();
+        }
+        this._lightningNode = null;
+        this._lightningSprite = null;
+        this._lightningFrames.clear();
     }
 
     /**
@@ -88,9 +184,9 @@ export class Item extends Component {
         this._sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this._sprite.type = Sprite.Type.SIMPLE;
 
-        // 如果创建时已有数据，立即加载图片
+        // 如果创建时已有数据，立即刷新视觉（包括图片和特效）
         if (this._data) {
-            this.loadIcon();
+            this.refreshVisual();
         }
     }
 
@@ -99,6 +195,11 @@ export class Item extends Component {
      */
     private refreshVisual(): void {
         this.loadIcon();
+        // 如果是发射器，启动星星特效和闪电标志（只启动一次）
+        if (this._data?.isGenerator && !this._starEffectStarted) {
+            this.createGeneratorStarEffect();
+            this.createLightningIcon();
+        }
     }
 
     /**
@@ -148,6 +249,246 @@ export class Item extends Component {
         });
     }
 
+    // ==================== 发射器星星特效 ====================
+
+    /**
+     * 创建发射器常驻循环星星特效
+     * 序列帧动画，ONE+ONE 叠加混合模式（黑色底色自动消失，发光叠加）
+     */
+    private createGeneratorStarEffect(): void {
+        if (this._starEffectStarted) return;
+        this._starEffectStarted = true;
+
+        this._starEffectNode = new Node('GeneratorStarEffect');
+        const transform = this._starEffectNode.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+
+        this._starSprite = this._starEffectNode.addComponent(Sprite);
+        this._starSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this._starSprite.type = Sprite.Type.SIMPLE;
+        // 透明PNG用默认混合模式（SRC_ALPHA / ONE_MINUS_SRC_ALPHA），不需要叠加
+
+        this._starEffectNode.setScale(Item.STAR_SCALE, Item.STAR_SCALE, 1);
+        this._starEffectNode.setPosition(0, Item.STAR_OFFSET_Y, 0);
+        this._starEffectNode.setParent(this.node);
+
+        // 加载序列帧（用 Texture2D 加载，兼容图片导入类型为 texture 的情况）
+        resources.loadDir(Item.STAR_EFFECT_PATH, Texture2D, (err, textures) => {
+            if (err || !textures || textures.length === 0) {
+                console.warn(`[Item] 发射器星星序列帧加载失败: ${Item.STAR_EFFECT_PATH}，请将PNG序列放入该目录`);
+                return;
+            }
+            // 按文件名排序
+            textures.sort((a, b) => a.name.localeCompare(b.name));
+            this._starFrames = textures.map(tex => {
+                const sf = new SpriteFrame();
+                sf.texture = tex;
+                return sf;
+            });
+            this._starFrameIndex = 0;
+            if (this._starSprite) {
+                this._starSprite.spriteFrame = this._starFrames[0];
+            }
+            console.log(`[Item] 发射器星星序列帧加载成功: ${this._starFrames.length} 帧`);
+        });
+    }
+
+
+    // ==================== 发射器闪电标志 ====================
+
+    /**
+     * 创建发射器闪电标志（右下角，不同倍率显示不同颜色）
+     */
+    private createLightningIcon(): void {
+        if (this._lightningNode) return;
+
+        this._lightningNode = new Node('LightningIcon');
+        const transform = this._lightningNode.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+        transform.setContentSize(Item.LIGHTNING_SIZE, Item.LIGHTNING_SIZE);
+
+        this._lightningSprite = this._lightningNode.addComponent(Sprite);
+        this._lightningSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this._lightningSprite.type = Sprite.Type.SIMPLE;
+        this._lightningSprite.color = new Color(255, 255, 255, Item.LIGHTNING_OPACITY);
+
+        this._lightningNode.setPosition(Item.LIGHTNING_OFFSET_X, Item.LIGHTNING_OFFSET_Y, 0);
+        this._lightningNode.setParent(this.node);
+
+        // 获取当前倍率，显示对应图标
+        const currentMultiplier = getGameContext()?.gameManager?.currentMultiplier ?? 1;
+        this.updateLightningIcon(currentMultiplier);
+    }
+
+    /**
+     * 根据倍率切换闪电标志图标
+     * @param multiplier 当前倍率（1/2/4）
+     */
+    private updateLightningIcon(multiplier: number): void {
+        if (!this._lightningSprite || !this._lightningNode) return;
+
+        // 已缓存直接使用
+        const cached = this._lightningFrames.get(multiplier);
+        if (cached) {
+            this._lightningSprite.spriteFrame = cached;
+            return;
+        }
+
+        // 根据倍率选择路径
+        let path = Item.LIGHTNING_X1_PATH;
+        if (multiplier === 2) path = Item.LIGHTNING_X2_PATH;
+        else if (multiplier === 4) path = Item.LIGHTNING_X4_PATH;
+
+        // 加载 Texture2D（兼容图片导入类型为 texture 的情况）
+        const tryLoad = (loadPath: string, onFail: () => void) => {
+            resources.load(loadPath, Texture2D, (err, texture) => {
+                if (err) { onFail(); return; }
+                if (texture) {
+                    const sf = new SpriteFrame();
+                    sf.texture = texture;
+                    this._lightningFrames.set(multiplier, sf);
+                    if (this._lightningSprite && this._lightningNode && this._lightningNode.isValid) {
+                        this._lightningSprite.spriteFrame = sf;
+                    }
+                }
+            });
+        };
+
+        tryLoad(`${path}/texture`, () => {
+            tryLoad(path, () => {
+                console.warn(`[Item] 闪电标志加载失败: ${path}`);
+            });
+        });
+    }
+    // ==================== 选中特效 ====================
+
+    /**
+     * 创建选中特效节点（懒加载，第一次选中时才创建）
+     */
+    private createSelectedEffect(): void {
+        if (this._selectedEffectNode) return;
+
+        this._selectedEffectNode = new Node('SelectedEffect');
+        const transform = this._selectedEffectNode.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+        transform.setContentSize(Item.SELECTED_SIZE, Item.SELECTED_SIZE);
+
+        this._selectedSprite = this._selectedEffectNode.addComponent(Sprite);
+        this._selectedSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this._selectedSprite.type = Sprite.Type.SIMPLE;
+
+        this._selectedEffectNode.setPosition(0, 0, 0);
+        this._selectedEffectNode.setParent(this.node);
+        this._selectedEffectNode.active = false;
+
+        // 加载序列帧
+        resources.loadDir(Item.SELECTED_EFFECT_PATH, Texture2D, (err, textures) => {
+            if (err || !textures || textures.length === 0) {
+                console.warn(`[Item] 选中特效序列帧加载失败: ${Item.SELECTED_EFFECT_PATH}`);
+                return;
+            }
+            textures.sort((a, b) => a.name.localeCompare(b.name));
+            this._selectedFrames = textures.map(tex => {
+                const sf = new SpriteFrame();
+                sf.texture = tex;
+                return sf;
+            });
+            this._selectedFrameIndex = 0;
+            this._selectedEffectLoaded = true;
+            if (this._selectedSprite && this._selectedEffectNode?.active) {
+                this._selectedSprite.spriteFrame = this._selectedFrames[0];
+            }
+            console.log(`[Item] 选中特效序列帧加载成功: ${this._selectedFrames.length} 帧`);
+        });
+    }
+
+    /**
+     * 设置选中状态（由 ItemManager 调用）
+     */
+    public setSelected(selected: boolean): void {
+        if (selected) {
+            this.createSelectedEffect();
+            if (this._selectedEffectNode) {
+                this._selectedEffectNode.active = true;
+                if (this._selectedEffectLoaded && this._selectedSprite && this._selectedFrames.length > 0) {
+                    this._selectedSprite.spriteFrame = this._selectedFrames[0];
+                    this._selectedFrameIndex = 0;
+                }
+            }
+        } else {
+            if (this._selectedEffectNode) {
+                this._selectedEffectNode.active = false;
+            }
+        }
+    }
+
+    // ==================== 长按连续发射 ====================
+
+    /**
+     * 开始长按检测（仅已选中的发射器才启动）
+     */
+    private startLongPress(): void {
+        if (!this._data?.isGenerator) return;
+        if (!ItemManager.instance.isSelected(this.node)) return;
+
+        this._longPressTimer = window.setTimeout(() => {
+            this._isLongPressFiring = true;
+            // 立即发射一次
+            ItemManager.instance.fireGenerator(this.node);
+            // 然后每隔 FIRE_INTERVAL 发射一次
+            this._fireTimer = window.setInterval(() => {
+                if (this.node && this.node.isValid) {
+                    ItemManager.instance.fireGenerator(this.node);
+                }
+            }, Item.FIRE_INTERVAL);
+        }, Item.LONG_PRESS_DELAY);
+    }
+
+    /**
+     * 停止长按和连续发射
+     */
+    private stopLongPress(): void {
+        if (this._longPressTimer !== null) {
+            clearTimeout(this._longPressTimer);
+            this._longPressTimer = null;
+        }
+        if (this._fireTimer !== null) {
+            clearInterval(this._fireTimer);
+            this._fireTimer = null;
+        }
+        this._isLongPressFiring = false;
+    }
+
+    /**
+     * 每帧更新：驱动星星和选中特效序列帧动画循环播放
+     */
+    update(deltaTime: number): void {
+        // 发射器星星特效
+        if (this._starEffectNode && this._starFrames.length > 0) {
+            this._starTimer += deltaTime;
+            const starInterval = 1.0 / Item.STAR_FPS;
+            if (this._starTimer >= starInterval) {
+                this._starTimer = 0;
+                this._starFrameIndex = (this._starFrameIndex + 1) % this._starFrames.length;
+                if (this._starSprite && this._starEffectNode.isValid) {
+                    this._starSprite.spriteFrame = this._starFrames[this._starFrameIndex];
+                }
+            }
+        }
+        // 选中特效
+        if (this._selectedEffectNode && this._selectedEffectNode.active && this._selectedFrames.length > 0) {
+            this._selectedTimer += deltaTime;
+            const selectedInterval = 1.0 / Item.SELECTED_FPS;
+            if (this._selectedTimer >= selectedInterval) {
+                this._selectedTimer = 0;
+                this._selectedFrameIndex = (this._selectedFrameIndex + 1) % this._selectedFrames.length;
+                if (this._selectedSprite && this._selectedEffectNode.isValid) {
+                    this._selectedSprite.spriteFrame = this._selectedFrames[this._selectedFrameIndex];
+                }
+            }
+        }
+    }
+
     private registerTouchEvents(): void {
         this.node.on(Node.EventType.TOUCH_START, this.onTouchStart, this);
         this.node.on(Node.EventType.TOUCH_MOVE, this.onTouchMove, this);
@@ -186,6 +527,9 @@ export class Item extends Component {
         // 抬高节点 Z 轴
         this._originLocalZ = this.node.position.z;
         this.node.position = new Vec3(this.node.position.x, this.node.position.y, this._originLocalZ + this.dragZOffset);
+
+        // 启动长按检测（仅已选中的发射器才会真正启动）
+        this.startLongPress();
     }
 
     private onTouchMove(event: EventTouch): void {
@@ -203,6 +547,8 @@ export class Item extends Component {
                 return;
             }
             this._isDragging = true;
+            // 进入拖动状态，停止长按
+            this.stopLongPress();
         }
 
         const touchWorldPos = this.screenToWorld(event.getLocation());
@@ -211,13 +557,21 @@ export class Item extends Component {
     }
 
     private onTouchEnd(event: EventTouch): void {
+        // 停止长按和连续发射
+        const wasLongPressFiring = this._isLongPressFiring;
+        this.stopLongPress();
+
         if (this._isDragging) {
             this.finalizeDrag();
-        } else {
-            // 未进入拖动状态，视为点击
+        } else if (!wasLongPressFiring) {
+            // 未进入拖动状态且未触发长按，视为短按点击
             this.restoreZ();
             this.node.setSiblingIndex(this._originalSiblingIndex);
             this.handleClick();
+        } else {
+            // 长按结束，只恢复状态
+            this.restoreZ();
+            this.node.setSiblingIndex(this._originalSiblingIndex);
         }
 
         this._startScreenPos = null;
@@ -226,6 +580,7 @@ export class Item extends Component {
 
     private onTouchCancel(event: EventTouch): void {
         const wasDragging = this._isDragging;
+        this.stopLongPress();
 
         this.restoreZ();
         this.node.setSiblingIndex(this._originalSiblingIndex);
@@ -256,11 +611,10 @@ export class Item extends Component {
 
     private handleClick(): void {
         const itemData = this.data;
-        if (!itemData || !itemData.isGenerator) {
-            return;
-        }
+        if (!itemData) return;
 
         this.playClickAnimation();
+        // 所有物品都可以选中；选中状态下发射器才会发射（逻辑在 ItemManager.handleItemClick）
         ItemManager.instance.handleItemClick(this.node);
     }
 

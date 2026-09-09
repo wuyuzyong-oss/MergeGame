@@ -6,6 +6,7 @@ import { ResourceManager } from './resource/ResourceManager';
 import { EventManager } from './core/EventManager';
 import { setGameContext } from './core/GameContext';
 import { OrderCard } from './order/OrderCard';
+import { AudioManager } from './AudioManager';
 // 注意：不直接 import AccountPanel / OrderPanel，避免循环依赖
 // GameManager → OrderPanel → OrderManager → GameManager
 // 改用 @ccclass 注册名 + addComponent(字符串) 动态挂载
@@ -122,6 +123,10 @@ export class GameManager extends Component {
 
         // 初始化物品管理器（传入 BoardManager，避免循环依赖）
         ItemManager.instance.init(this.itemPrefab, this.boardPanel, this._boardManager);
+
+        // 初始化音频管理器并播放背景音乐
+        AudioManager.instance.init();
+        AudioManager.instance.playBGM();
 
         // 生成测试物品
         this.spawnTestItems();

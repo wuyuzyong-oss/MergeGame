@@ -58,6 +58,35 @@ export class ResourceManager {
         EventManager.instance.emit(EventManager.DIAMOND_CHANGED, PlayerData.instance.diamond);
     }
 
+    // ========== GM设置接口（直接设置为指定值，实时生效） ==========
+
+    /**
+     * 直接设置金币数量
+     */
+    public setGold(amount: number): void {
+        PlayerData.instance.gold = Math.max(0, Math.floor(amount));
+        console.log(`[Resource] Gold set to ${PlayerData.instance.gold}`);
+        EventManager.instance.emit(EventManager.GOLD_CHANGED, PlayerData.instance.gold);
+    }
+
+    /**
+     * 直接设置体力数量（不超过上限）
+     */
+    public setEnergy(amount: number): void {
+        PlayerData.instance.energy = Math.max(0, Math.min(Math.floor(amount), PlayerData.instance.maxEnergy));
+        console.log(`[Resource] Energy set to ${PlayerData.instance.energy}`);
+        EventManager.instance.emit(EventManager.ENERGY_CHANGED, PlayerData.instance.energy);
+    }
+
+    /**
+     * 直接设置钻石数量
+     */
+    public setDiamond(amount: number): void {
+        PlayerData.instance.diamond = Math.max(0, Math.floor(amount));
+        console.log(`[Resource] Diamond set to ${PlayerData.instance.diamond}`);
+        EventManager.instance.emit(EventManager.DIAMOND_CHANGED, PlayerData.instance.diamond);
+    }
+
     public consumeDiamond(amount: number): boolean {
         if (PlayerData.instance.diamond < amount) {
             console.log('[Resource] consumeDiamond failed: not enough diamond');

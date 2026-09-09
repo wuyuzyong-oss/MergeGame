@@ -1,4 +1,4 @@
-import { Vec3, Node, Prefab, instantiate, tween } from 'cc';
+import { Vec3, Node, Prefab, instantiate, tween, Sprite, SpriteFrame, Texture2D, resources, UITransform } from 'cc';
 import { BoardManager } from './BoardManager';
 import { Cell } from './Cell';
 import { ItemData } from './ItemData';
@@ -6,6 +6,7 @@ import { ConfigManager } from './ConfigManager';
 import { MergeManager } from './MergeManager';
 import { GeneratorManager } from './GeneratorManager';
 import { EventManager } from './core/EventManager';
+import { AudioManager } from './AudioManager';
 // 注意：不 import GameManager，避免循环依赖
 // BoardManager 通过 init() 传入
 
@@ -22,6 +23,20 @@ export class ItemManager {
     private _itemPrefab: Prefab | null = null;
     private _boardRoot: Node | null = null;
     private _boardManager: BoardManager | null = null;
+
+    /** 当前选中的物品节点（选中状态下发射器才能发射） */
+    private _selectedItem: Node | null = null;
+
+    // ==================== 合成爆炸特效 ====================
+    /** 合成爆炸序列帧路径 */
+    private static readonly MERGE_EXPLOSION_PATH = 'textures/effect/merge_explosion';
+    /** 合成爆炸特效帧率（FPS） */
+    private static readonly MERGE_EXPLOSION_FPS = 20;
+    /** 合成爆炸特效显示大小（像素） */
+    private static readonly MERGE_EXPLOSION_SIZE = 350;
+
+    /** 合成爆炸序列帧缓存（静态，所有 ItemManager 共享） */
+    private static _mergeExplosionFrames: SpriteFrame[] | null = null;
 
     /**
      * 初始化管理器
@@ -69,42 +84,95 @@ export class ItemManager {
         return this.spawnItemWithData(itemData, col, row);
     }
 
+    // ==================== 选中状态管理 ====================
+
     /**
-     * 处理物品点击（当前仅用于发射器）
-     * @param itemNode 被点击的物品节点
+     * 选中物品（取消之前的选中）
      */
-    public handleItemClick(itemNode: Node): void {
+    public selectItem(itemNode: Node): void {
+        if (this._selectedItem === itemNode) return;
+        this.deselectItem();
+        this._selectedItem = itemNode;
+        const comp = this.getItemComponent(itemNode);
+        comp?.setSelected(true);
+        console.log(`[ItemManager] selected: ${comp?.data?.itemId ?? 'unknown'}`);
+    }
+
+    /**
+     * 取消选中
+     */
+    public deselectItem(): void {
+        if (this._selectedItem) {
+            const comp = this.getItemComponent(this._selectedItem);
+            comp?.setSelected(false);
+            this._selectedItem = null;
+        }
+    }
+
+    /**
+     * 判断物品是否被选中
+     */
+    public isSelected(itemNode: Node): boolean {
+        return this._selectedItem === itemNode;
+    }
+
+    /**
+     * 获取当前选中的物品
+     */
+    public getSelectedItem(): Node | null {
+        return this._selectedItem;
+    }
+
+    // ==================== 发射器发射 ====================
+
+    /**
+     * 发射一个物品（供点击和长按共用）
+     * @returns 发射成功返回 true，失败（体力不足/棋盘满）返回 false
+     */
+    public fireGenerator(itemNode: Node): boolean {
         const itemComponent = this.getItemComponent(itemNode);
         const itemData = itemComponent?.data;
-        if (!itemData) {
-            console.error('[ItemManager] handleItemClick: no item data');
-            return;
+        if (!itemData || !itemData.isGenerator) {
+            return false;
         }
 
-        if (!itemData.isGenerator) {
-            return;
-        }
-
-        // GeneratorManager 只返回数据，节点操作由 ItemManager 负责
         const result = GeneratorManager.instance.generate(itemData);
         if (!result) {
-            return;
+            return false;
         }
 
-        // 生成产物（附带缩放动画）
         const node = this.spawnItemWithData(result.outputItemData, result.targetCol, result.targetRow, 0.5);
         if (!node) {
             console.error('[ItemManager] Failed to spawn generator output');
-            return;
+            return false;
         }
 
         console.log(`[Generator] Spawn: ${result.outputItemData.itemId} at Cell(${result.targetCol},${result.targetRow})`);
 
-        // 发射器寿命耗尽，销毁自身
+        // 播放发射器发射音效
+        AudioManager.instance.playSFX(AudioManager.SFX_GENERATOR_FIRE);
+
         if (result.generatorExhausted) {
+            if (this.isSelected(itemNode)) {
+                this.deselectItem();
+            }
             this.destroyItem(itemNode);
             console.log(`[Generator] ${itemData.itemId} destroyed: life exhausted`);
         }
+        return true;
+    }
+
+    /**
+     * 处理物品点击
+     * - 未选中 → 选中（显示选中特效）
+     * - 已选中且是发射器 → 发射一个物品
+     */
+    public handleItemClick(itemNode: Node): void {
+        if (!this.isSelected(itemNode)) {
+            this.selectItem(itemNode);
+            return;
+        }
+        this.fireGenerator(itemNode);
     }
 
     /**
@@ -227,10 +295,10 @@ export class ItemManager {
         console.log(`[Merge] Try merge: ${itemData.itemId} + ${targetItemData.itemId}`);
 
         if (!MergeManager.instance.canMerge(itemData, targetItemData)) {
-            this.bounceBack(itemNode, originCol, originRow);
+            // 不能合成：交换两个物品的位置
+            this.swapItems(itemNode, itemData, originCol, originRow, targetItemData, dropCell.col, dropCell.row);
             return;
         }
-
         // 可以合成
         const mergeManager = MergeManager.instance;
         const nextItemId = mergeManager.merge(itemData, targetItemData);
@@ -281,6 +349,11 @@ export class ItemManager {
         boardManager.removeItem(targetCol, targetRow);
 
         // 确保视觉上先完成合成动画，再生成新物品
+        // 提前播放合成爆炸特效，和物品缩小动画同时开始
+        this.playMergeExplosion(targetCol, targetRow);
+
+        // 确保视觉上先完成合成动画，再生成新物品
+        // 确保视觉上先完成合成动画，再生成新物品
         this.animateMerge(dragNode, targetNode, () => {
             // 销毁旧节点
             this.safeDestroyItem(dragNode, dragItemData);
@@ -319,6 +392,9 @@ export class ItemManager {
                 .start();
 
             console.log(`[Merge] Merge complete: ${nextItemId} at Cell(${targetCol},${targetRow})`);
+            console.log(`[Merge] Merge complete: ${nextItemId} at Cell(${targetCol},${targetRow})`);
+            // 播放合成音效（根据合成后的物品等级）
+            AudioManager.instance.playMergeSFX(newItemData.level);
             EventManager.instance.emit(EventManager.ITEM_MERGED, newItemData);
         });
     }
@@ -346,6 +422,84 @@ export class ItemManager {
             .start();
     }
 
+
+    /**
+     * 播放合成爆炸特效（PNG序列帧，播放一次后销毁）
+     * @param col 目标格子列
+     * @param row 目标格子行
+     */
+    private playMergeExplosion(col: number, row: number): void {
+        if (!this._boardRoot || !this._boardManager) return;
+
+        const playWithFrames = (frames: SpriteFrame[]) => {
+            if (frames.length === 0) return;
+
+            const effectNode = new Node('MergeExplosion');
+            const transform = effectNode.addComponent(UITransform);
+            transform.setAnchorPoint(0.5, 0.5);
+            transform.setContentSize(ItemManager.MERGE_EXPLOSION_SIZE, ItemManager.MERGE_EXPLOSION_SIZE);
+
+            const sprite = effectNode.addComponent(Sprite);
+            sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+            sprite.type = Sprite.Type.SIMPLE;
+            sprite.spriteFrame = frames[0];
+
+            // 设置位置到目标格子
+            const cellPos = this._boardManager!.getCellWorldPos(col, row);
+            if (cellPos) {
+                const localPos = this._boardRoot!.getComponent(UITransform)?.convertToNodeSpaceAR(cellPos);
+                if (localPos) {
+                    effectNode.setPosition(localPos);
+                }
+            }
+
+            effectNode.setParent(this._boardRoot);
+            // 放到最上层，确保不被物品挡住
+            effectNode.setSiblingIndex(this._boardRoot.children.length - 1);
+
+            // 顺序播放一次，播完销毁
+            let frameIndex = 0;
+            const interval = 1000 / ItemManager.MERGE_EXPLOSION_FPS;
+            const timer = window.setInterval(() => {
+                if (!effectNode.isValid) {
+                    clearInterval(timer);
+                    return;
+                }
+                // 每帧都保持在最上层，避免新创建的物品盖住特效
+                if (effectNode.parent) {
+                    effectNode.setSiblingIndex(effectNode.parent.children.length - 1);
+                }
+                frameIndex++;
+                if (frameIndex >= frames.length) {
+                    clearInterval(timer);
+                    effectNode.destroy();
+                    return;
+                }
+                sprite.spriteFrame = frames[frameIndex];
+            }, interval);
+        };
+
+        // 已有缓存直接播放，否则加载并缓存
+        if (ItemManager._mergeExplosionFrames) {
+            playWithFrames(ItemManager._mergeExplosionFrames);
+        } else {
+            resources.loadDir(ItemManager.MERGE_EXPLOSION_PATH, Texture2D, (err, textures) => {
+                if (err || !textures || textures.length === 0) {
+                    console.warn(`[ItemManager] 合成爆炸序列帧加载失败: ${ItemManager.MERGE_EXPLOSION_PATH}`);
+                    return;
+                }
+                textures.sort((a, b) => a.name.localeCompare(b.name));
+                const frames = textures.map(tex => {
+                    const sf = new SpriteFrame();
+                    sf.texture = tex;
+                    return sf;
+                });
+                ItemManager._mergeExplosionFrames = frames;
+                console.log(`[ItemManager] 合成爆炸序列帧加载成功: ${frames.length} 帧`);
+                playWithFrames(frames);
+            });
+        }
+    }
     /**
      * 移动物品到目标格子
      */
@@ -372,6 +526,63 @@ export class ItemManager {
         tween(itemNode)
             .to(0.15, { position: this.worldToLocal(targetWorldPos) })
             .start();
+    }
+
+    /**
+    /**
+     * 交换两个物品的位置（不能合成时调用）
+     * @param dragNode       被拖拽的物品节点
+     * @param dragItemData   被拖拽物品数据
+     * @param originCol      被拖拽物品起始列
+     * @param originRow      被拖拽物品起始行
+     * @param targetItemData 目标物品数据
+     * @param targetCol      目标列
+     * @param targetRow      目标行
+     */
+    private swapItems(
+        dragNode: Node,
+        dragItemData: ItemData,
+        originCol: number,
+        originRow: number,
+        targetItemData: ItemData,
+        targetCol: number,
+        targetRow: number
+    ): void {
+        const boardManager = this._boardManager;
+        if (!boardManager) {
+            return;
+        }
+
+        // 找到目标物品的节点
+        const targetNode = this.findItemNodeByData(targetItemData);
+
+        // 更新棋盘数据：两个格子的物品互换
+        boardManager.setItem(originCol, originRow, targetItemData);
+        boardManager.setItem(targetCol, targetRow, dragItemData);
+
+        // 立即更新两个物品的 col/row 数据，避免动画过程中数据不一致
+        targetItemData.col = originCol;
+        targetItemData.row = originRow;
+        dragItemData.col = targetCol;
+        dragItemData.row = targetRow;
+
+        // 获取两个格子的世界坐标
+        const originWorldPos = boardManager.getCellWorldPos(originCol, originRow);
+        const targetWorldPos = boardManager.getCellWorldPos(targetCol, targetRow);
+        if (!originWorldPos || !targetWorldPos) {
+            return;
+        }
+
+        // 同时播放两个物品的位移动画
+        tween(dragNode)
+            .to(0.15, { position: this.worldToLocal(targetWorldPos) })
+            .start();
+
+        if (targetNode && targetNode.isValid) {
+            tween(targetNode)
+                .to(0.15, { position: this.worldToLocal(originWorldPos) })
+                .start();
+        }
     }
 
     /**

@@ -1,7 +1,7 @@
 import { Vec3, Node, tween, UITransform } from 'cc';
-import * as orderPoolConfig from '../../configs/order_pool.json';
 import { OrderData } from './OrderData';
 import type { OrderItem } from './OrderItem';
+import { OrderGenerator } from './OrderGenerator';
 import { BoardManager } from '../BoardManager';
 import { ItemManager } from '../ItemManager';
 import { ResourceManager } from '../resource/ResourceManager';
@@ -47,7 +47,6 @@ export class OrderManager {
         return OrderManager._instance;
     }
 
-    private _orderPool: OrderData[] = [];
     private _currentOrders: OrderData[] = [];
 
     /** 可用的NPC列表（7个，对应 textures/npc/ 下的7个文件夹） */
@@ -57,7 +56,6 @@ export class OrderManager {
      * 初始化订单系统
      */
     public init(): void {
-        this.loadOrderPool();
         this.generateCurrentOrders(5);
         this.bindEvents();
         console.log('[OrderManager] initialized with orders:', this._currentOrders.map(o => o.id));
@@ -227,35 +225,32 @@ export class OrderManager {
     // ==================== 内部方法 ====================
 
     /**
-     * 加载订单池配置
-     */
-    private loadOrderPool(): void {
-        const config = (orderPoolConfig as any).default ?? orderPoolConfig;
-        const list = config?.orders as any[];
-        if (!Array.isArray(list)) {
-            console.error('[OrderManager] order_pool.json format error');
-            return;
-        }
-        this._orderPool = list.map((o: any) => new OrderData(o));
-        console.log(`[OrderManager] loaded ${this._orderPool.length} orders from pool`);
-    }
-
-    /**
-     * 随机生成不重复的当前订单
+     * 随机生成不重复的当前订单（使用 OrderGenerator 按概率配置生成）
      * @param count 订单数量
      */
     private generateCurrentOrders(count: number): void {
         this._currentOrders = [];
-        const pool = [...this._orderPool];
+        const multiplier = this.getCurrentMultiplier();
 
-        while (this._currentOrders.length < count && pool.length > 0) {
-            const index = Math.floor(Math.random() * pool.length);
-            this._currentOrders.push(pool[index]);
-            pool.splice(index, 1);
+        for (let i = 0; i < count; i++) {
+            const orderId = `order_${Date.now()}_${i}_${Math.floor(Math.random() * 10000)}`;
+            const order = OrderGenerator.generateOrder(multiplier, orderId, '');
+            this._currentOrders.push(order);
         }
 
         // 随机分配不重复的NPC（从7个NPC里选count个不重复的）
         this.assignUniqueNPCs(this._currentOrders);
+    }
+
+    /**
+     * 获取当前倍率（1 | 2 | 4）
+     */
+    private getCurrentMultiplier(): 1 | 2 | 4 {
+        const ctx = getGameContext();
+        const m = ctx?.currentMultiplier ?? 1;
+        if (m === 2) return 2;
+        if (m === 4) return 4;
+        return 1;
     }
 
     /**
@@ -440,33 +435,33 @@ export class OrderManager {
     }
 
     /**
-     * 完成订单后刷新：移除已完成订单，随机补一个新订单
+    /**
+     * 完成订单后刷新：移除已完成订单，用 OrderGenerator 生成一个新订单补充
      */
     private refreshOrder(completedOrder: OrderData): void {
         this._currentOrders = this._currentOrders.filter(o => o.id !== completedOrder.id);
 
-        const usedIds = new Set(this._currentOrders.map(o => o.id));
-        const candidates = this._orderPool.filter(o => !usedIds.has(o.id));
+        const multiplier = this.getCurrentMultiplier();
+        const orderId = `order_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        const next = OrderGenerator.generateOrder(multiplier, orderId, '');
 
-        if (candidates.length > 0) {
-            const next = candidates[Math.floor(Math.random() * candidates.length)];
-            // 分配一个与当前4个订单不重复的NPC
-            const usedNPCs = new Set(this._currentOrders.map(o => o.npcId));
-            const availableNPCs = OrderManager.NPC_IDS.filter(n => !usedNPCs.has(n));
-            if (availableNPCs.length > 0) {
-                next.npcId = availableNPCs[Math.floor(Math.random() * availableNPCs.length)];
-            }
-            this._currentOrders.push(next);
-            console.log(`[OrderManager] new order added: ${next.id}`);
+        // 分配一个与当前4个订单不重复的NPC
+        const usedNPCs = new Set(this._currentOrders.map(o => o.npcId));
+        const availableNPCs = OrderManager.NPC_IDS.filter(n => !usedNPCs.has(n));
+        if (availableNPCs.length > 0) {
+            next.npcId = availableNPCs[Math.floor(Math.random() * availableNPCs.length)];
+        }
 
-            // 如果新订单所有物品都已就绪，自动移到最前面
-            const boardManager = getGameContext()?.boardManager ?? null;
-            if (boardManager) {
-                const result = this.checkSingleOrder(next, boardManager);
-                if (result.status === OrderStatus.COMPLETE) {
-                    this.moveOrderToFront(next.id);
-                    console.log(`[OrderManager] new order ${next.id} is complete, moved to front`);
-                }
+        this._currentOrders.push(next);
+        console.log(`[OrderManager] new order added: ${next.id}`);
+
+        // 如果新订单所有物品都已就绪，自动移到最前面
+        const boardManager = getGameContext()?.boardManager ?? null;
+        if (boardManager) {
+            const result = this.checkSingleOrder(next, boardManager);
+            if (result.status === OrderStatus.COMPLETE) {
+                this.moveOrderToFront(next.id);
+                console.log(`[OrderManager] new order ${next.id} is complete, moved to front`);
             }
         }
     }
