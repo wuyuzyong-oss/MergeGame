@@ -52,6 +52,9 @@ export class OrderManager {
     /** 可用的NPC列表（7个，对应 textures/npc/ 下的7个文件夹） */
     private static readonly NPC_IDS: string[] = ['npc_01', 'npc_02', 'npc_03', 'npc_04', 'npc_05', 'npc_06', 'npc_07'];
 
+    /** 订单完成后补充新订单的延迟时间（秒） */
+    public static readonly ORDER_REFILL_DELAY = 1.5;
+
     /**
      * 初始化订单系统
      */

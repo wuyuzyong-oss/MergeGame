@@ -108,6 +108,8 @@ export class BoardManager {
     }
 
     /**
+
+    /**
      * 清空棋盘上的所有物品
      */
     public clear(): void {

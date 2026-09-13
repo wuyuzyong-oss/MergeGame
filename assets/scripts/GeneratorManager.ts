@@ -43,10 +43,11 @@ export class GeneratorManager {
      * 9. 处理发射器寿命
      *
      * @param generatorData 发射器物品数据
+     * @param forceChainId  可选，强制只产出该 chainId 线路的物品（GM 一键完成订单用）
      * @returns 生成结果，失败返回 null
      */
-    public generate(generatorData: ItemData): GeneratorResult | null {
-        console.log(`[Generator] Click: ${generatorData.itemId}`);
+    public generate(generatorData: ItemData, forceChainId?: string): GeneratorResult | null {
+        console.log(`[Generator] Click: ${generatorData.itemId}${forceChainId ? ` (forceChain=${forceChainId})` : ''}`);
 
         const boardManager = GameManager.instance.boardManager;
         if (!boardManager) {
@@ -68,10 +69,10 @@ export class GeneratorManager {
             return null;
         }
 
-        // 3. 根据配置概率随机选择基础产出
-        const baseItemId = this.rollOutput(generatorData.itemId, generatorConfig);
+        // 3. 根据配置概率随机选择基础产出（forceChainId 有值时只在该线路内滚动）
+        const baseItemId = this.rollOutput(generatorData.itemId, generatorConfig, forceChainId);
         if (!baseItemId) {
-            console.error(`[Generator] Failed: no output item for ${generatorData.itemId}`);
+            console.error(`[Generator] Failed: no output item for ${generatorData.itemId}${forceChainId ? ` (chain=${forceChainId})` : ''}`);
             return null;
         }
         console.log(`[Generator] Base output: ${baseItemId}`);
@@ -103,8 +104,15 @@ export class GeneratorManager {
             console.log(`[Generator] Multiplier x${multiplier}: ${baseItemId}(Lv${baseLevel}) -> ${newItemId}(Lv${newLevel})`);
         }
 
-        // 5. 随机选一个空格子作为目标
-        const targetCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+        // 5. 选距离发射器最近的空格子作为目标（就近发射）
+        const genCol = generatorData.col;
+        const genRow = generatorData.row;
+        emptyCells.sort((a, b) => {
+            const distA = Math.abs(a.col - genCol) + Math.abs(a.row - genRow);
+            const distB = Math.abs(b.col - genCol) + Math.abs(b.row - genRow);
+            return distA - distB;
+        });
+        const targetCell = emptyCells[0];
 
         // 6. 消耗体力（cost × 倍数）—— 所有前置检查通过后才扣
         const cost = generatorConfig.cost ?? 1;
@@ -143,17 +151,37 @@ export class GeneratorManager {
 
     /**
      * 根据概率滚动产出
+     * @param forceChainId 可选，仅在该 chainId 线路的产出中滚动（权重重归一化）
      */
-    private rollOutput(generatorId: string, config: import('./generator/GeneratorData').GeneratorData | null): string | null {
+    private rollOutput(generatorId: string, config: import('./generator/GeneratorData').GeneratorData | null, forceChainId?: string): string | null {
         if (!config || !config.outputs || config.outputs.length === 0) {
             return null;
         }
 
-        const roll = Math.random() * 100;
-        console.log(`[Generator] Roll: ${roll.toFixed(2)}`);
+        // 如果指定了线路，过滤出该线路的产出
+        let outputs = config.outputs;
+        if (forceChainId) {
+            outputs = outputs.filter(o => {
+                const itemConfig = ConfigManager.instance.getItemConfig(o.itemId);
+                return itemConfig?.chainId === forceChainId;
+            });
+            if (outputs.length === 0) {
+                console.warn(`[Generator] No output for chain ${forceChainId} in ${generatorId}`);
+                return null;
+            }
+        }
+
+        // 基于（可能已过滤的）产出重新计算总权重，保证权重归一化
+        const totalRate = outputs.reduce((sum, o) => sum + o.rate, 0);
+        if (totalRate <= 0) {
+            return outputs[outputs.length - 1].itemId;
+        }
+
+        const roll = Math.random() * totalRate;
+        console.log(`[Generator] Roll: ${roll.toFixed(2)} / ${totalRate}${forceChainId ? ` (chain=${forceChainId})` : ''}`);
 
         let cumulative = 0;
-        for (const output of config.outputs) {
+        for (const output of outputs) {
             cumulative += output.rate;
             if (roll < cumulative) {
                 return output.itemId;
@@ -161,7 +189,7 @@ export class GeneratorManager {
         }
 
         // 兜底返回最后一个
-        return config.outputs[config.outputs.length - 1].itemId;
+        return outputs[outputs.length - 1].itemId;
     }
 
     /**

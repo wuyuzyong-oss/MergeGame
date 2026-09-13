@@ -127,16 +127,17 @@ export class ItemManager {
 
     /**
      * 发射一个物品（供点击和长按共用）
+     * @param forceChainId 可选，强制只产出该 chainId 线路的物品（GM 一键完成订单用）
      * @returns 发射成功返回 true，失败（体力不足/棋盘满）返回 false
      */
-    public fireGenerator(itemNode: Node): boolean {
+    public fireGenerator(itemNode: Node, forceChainId?: string): boolean {
         const itemComponent = this.getItemComponent(itemNode);
         const itemData = itemComponent?.data;
         if (!itemData || !itemData.isGenerator) {
             return false;
         }
 
-        const result = GeneratorManager.instance.generate(itemData);
+        const result = GeneratorManager.instance.generate(itemData, forceChainId);
         if (!result) {
             return false;
         }
@@ -603,6 +604,9 @@ export class ItemManager {
             .to(0.15, { position: this.worldToLocal(originWorldPos) })
             .start();
     }
+
+    /**
+    /**
 
     /**
      * 销毁指定物品节点，并清理棋盘数据

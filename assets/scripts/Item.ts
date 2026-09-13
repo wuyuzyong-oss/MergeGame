@@ -5,6 +5,7 @@ import { Cell } from './Cell';
 import { getGameContext } from './core/GameContext';
 import { EventManager } from './core/EventManager';
 import { BoardManager } from './BoardManager';
+import { OrderManager } from './order/OrderManager';
 
 const { ccclass, property } = _decorator;
 
@@ -30,6 +31,11 @@ export class Item extends Component {
      * key: resources 加载路径，value: SpriteFrame
      */
     private static _spriteFrameCache: Map<string, SpriteFrame> = new Map();
+
+    /**
+     * 订单对勾icon的 SpriteFrame 缓存（静态，所有 Item 共享，只加载一次）
+     */
+    private static _orderCheckSpriteFrame: SpriteFrame | null = null;
 
     private _data: ItemData | null = null;
 
@@ -65,6 +71,16 @@ export class Item extends Component {
     /** Sprite 组件引用，用于设置图片 */
     private _sprite: Sprite | null = null;
 
+    // ==================== 物品显示大小 ====================
+    /**
+     * 物品图片显示大小（像素）——独立于格子大小，单独调整格子里物品的显示尺寸。
+     * 默认 145（与格子 BoardManager.CELL_SIZE 等大，保持原有表现）。
+     * 改小：物品在格子内缩小并居中；改大：物品超出格子。
+     * 说明：只影响物品图片本身的显示大小，不影响触摸/拖拽命中区域（命中区域始终为整格 CELL_SIZE，
+     *      不会出现点不到的缝隙），也不影响对勾/闪电/星星等图标（它们各有独立的大小与偏移常量）。
+     */
+    private static readonly ITEM_SIZE = 130;
+
     // ==================== 发射器星星特效 ====================
     // ==================== 发射器星星特效 ====================
     /** 发射器星星序列帧路径 */
@@ -80,7 +96,7 @@ export class Item extends Component {
     private _starSprite: Sprite | null = null;
     private _starFrames: SpriteFrame[] = [];
     private _starFrameIndex: number = 0;
-    private _starTimer: number = 0;
+    private _starLastTime: number = 0;
     private _starEffectStarted: boolean = false;
 
     // ==================== 选中特效 ====================
@@ -95,7 +111,7 @@ export class Item extends Component {
     private _selectedSprite: Sprite | null = null;
     private _selectedFrames: SpriteFrame[] = [];
     private _selectedFrameIndex: number = 0;
-    private _selectedTimer: number = 0;
+    private _selectedLastTime: number = 0;
     private _selectedEffectLoaded: boolean = false;
 
     // ==================== 长按连续发射 ====================
@@ -120,6 +136,18 @@ export class Item extends Component {
     /** x4倍率闪电路径 */
     private static readonly LIGHTNING_X4_PATH = 'textures/ui/lightning_x4';
 
+    // ==================== 订单对勾标志（棋盘物品命中订单需求时显示绿色对勾） ====================
+    /** 订单对勾icon图片路径（复用订单卡片的 check_icon，放在 assets/resources/textures/ui/check_icon.png，导入类型选 texture） */
+    private static readonly ORDER_CHECK_ICON_PATH = 'textures/ui/check_icon';
+    /** 订单对勾显示大小（像素）——改这里调整 icon 尺寸 */
+    private static readonly ORDER_CHECK_SIZE = 80;
+    /** 订单对勾 X 偏移（相对物品中心，正值=向右，负值=向左）——改这里调整水平位置 */
+    private static readonly ORDER_CHECK_OFFSET_X = 30;
+    /** 订单对勾 Y 偏移（相对物品中心，正值=向上，负值=向下）——改这里调整垂直位置 */
+    private static readonly ORDER_CHECK_OFFSET_Y = -40;
+    /** 订单对勾透明度（0-255，255=完全不透明） */
+    private static readonly ORDER_CHECK_OPACITY = 255;
+
     private _longPressTimer: number | null = null;
     private _fireTimer: number | null = null;
     private _isLongPressFiring: boolean = false;
@@ -128,6 +156,13 @@ export class Item extends Component {
     private _lightningSprite: Sprite | null = null;
     private _lightningFrames: Map<number, SpriteFrame> = new Map();
     private _onMultiplierChangedBound: ((multiplier: number) => void) | null = null;
+
+    /** 订单对勾子节点（懒创建，命中订单需求时显示） */
+    private _orderCheckNode: Node | null = null;
+    /** 订单对勾 Sprite 组件 */
+    private _orderCheckSprite: Sprite | null = null;
+    /** 订单变化事件回调引用（用于解绑） */
+    private _onOrderChangedBound: (() => void) | null = null;
     onLoad() {
         this.registerTouchEvents();
         this.createVisual();
@@ -136,6 +171,11 @@ export class Item extends Component {
             this.updateLightningIcon(multiplier);
         };
         EventManager.instance.on(EventManager.MULTIPLIER_CHANGED, this._onMultiplierChangedBound);
+        // 监听订单变化，刷新订单对勾标志（订单完成/补充/命中前移导致需求集合变化）
+        this._onOrderChangedBound = () => {
+            this.updateOrderCheckIcon();
+        };
+        EventManager.instance.on(EventManager.ORDER_CHANGED, this._onOrderChangedBound);
     }
 
     onDestroy() {
@@ -167,22 +207,42 @@ export class Item extends Component {
         this._lightningNode = null;
         this._lightningSprite = null;
         this._lightningFrames.clear();
+        // 取消订单变化监听
+        if (this._onOrderChangedBound) {
+            EventManager.instance.off(EventManager.ORDER_CHANGED, this._onOrderChangedBound);
+            this._onOrderChangedBound = null;
+        }
+        // 清理订单对勾标志
+        if (this._orderCheckNode && this._orderCheckNode.isValid) {
+            this._orderCheckNode.destroy();
+        }
+        this._orderCheckNode = null;
+        this._orderCheckSprite = null;
     }
 
     /**
-     * 创建物品视觉：UITransform 固定大小 + Sprite 组件
-     * Sprite.sizeMode = CUSTOM，强制缩放到格子大小
+     * 创建物品视觉：根节点 UITransform 固定为格子大小（作为触摸命中区域）+ 独立子节点承载物品图片 Sprite
+     * 物品图片 Sprite.sizeMode = CUSTOM，强制缩放到 ITEM_SIZE（可独立于格子大小调整）
      */
     private createVisual(): void {
-        // UITransform：固定显示大小，锚点居中
+        // 根节点 UITransform：固定为格子大小，作为触摸/拖拽命中区域（不随物品显示大小变化，保证整格可点、无死角缝隙）
         const transform = this.node.getComponent(UITransform) || this.node.addComponent(UITransform);
         transform.setContentSize(BoardManager.CELL_SIZE, BoardManager.CELL_SIZE);
         transform.setAnchorPoint(0.5, 0.5);
 
-        // Sprite：CUSTOM 模式，不管原图分辨率都缩放到格子大小
-        this._sprite = this.node.addComponent(Sprite);
+        // 物品图片挂在独立子节点上，显示大小由 ITEM_SIZE 常量单独控制（与命中区域解耦，居中于格子）
+        const spriteNode = new Node('ItemSprite');
+        const spriteTransform = spriteNode.addComponent(UITransform);
+        spriteTransform.setAnchorPoint(0.5, 0.5);
+        spriteTransform.setContentSize(Item.ITEM_SIZE, Item.ITEM_SIZE);
+
+        // Sprite：CUSTOM 模式，不管原图分辨率都缩放到 ITEM_SIZE
+        this._sprite = spriteNode.addComponent(Sprite);
         this._sprite.sizeMode = Sprite.SizeMode.CUSTOM;
         this._sprite.type = Sprite.Type.SIMPLE;
+
+        spriteNode.setPosition(0, 0, 0);
+        spriteNode.setParent(this.node);
 
         // 如果创建时已有数据，立即刷新视觉（包括图片和特效）
         if (this._data) {
@@ -200,6 +260,8 @@ export class Item extends Component {
             this.createGeneratorStarEffect();
             this.createLightningIcon();
         }
+        // 刷新订单对勾标志（物品命中当前订单需求时显示）
+        this.updateOrderCheckIcon();
     }
 
     /**
@@ -286,6 +348,7 @@ export class Item extends Component {
                 return sf;
             });
             this._starFrameIndex = 0;
+            this._starLastTime = 0;
             if (this._starSprite) {
                 this._starSprite.spriteFrame = this._starFrames[0];
             }
@@ -360,6 +423,119 @@ export class Item extends Component {
             });
         });
     }
+
+    // ==================== 订单对勾标志 ====================
+
+    /**
+     * 刷新订单对勾标志：当前物品命中任意订单需求时显示绿色对勾，否则隐藏
+     *
+     * 触发时机：
+     * 1. 物品数据变化（生成 / 合成产生新物品）→ refreshVisual 调用
+     * 2. 订单变化（ORDER_CHANGED：订单完成 / 补充 / 命中前移）→ 事件回调调用
+     */
+    private updateOrderCheckIcon(): void {
+        if (!this.isRequiredByAnyOrder()) {
+            // 不命中：若已创建则隐藏（保留节点以便复用）
+            if (this._orderCheckNode) {
+                this._orderCheckNode.active = false;
+            }
+            return;
+        }
+        // 命中：懒创建节点后显示
+        this.ensureOrderCheckIcon();
+        if (this._orderCheckNode) {
+            this._orderCheckNode.active = true;
+        }
+    }
+
+    /**
+     * 判断当前物品是否命中任意当前订单的需求
+     *
+     * 规则：只要物品 itemId 出现在任一当前订单的需求列表中即命中。
+     * 不看数量——棋盘上多个相同物品若都在订单需求中，每个都各自显示对勾。
+     * 发射器不参与（订单需求不会为发射器）。
+     */
+    private isRequiredByAnyOrder(): boolean {
+        const data = this._data;
+        if (!data || data.isGenerator) {
+            return false;
+        }
+        const orders = OrderManager.instance.getCurrentOrders();
+        for (const order of orders) {
+            for (const req of order.items) {
+                if (req.itemId === data.itemId) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 懒创建订单对勾子节点（首次命中时创建，之后复用，仅切换 active）
+     * 作为物品子节点，渲染在物品图片之上；尺寸/偏移由顶部 ORDER_CHECK_* 常量控制
+     */
+    private ensureOrderCheckIcon(): void {
+        if (this._orderCheckNode) {
+            return;
+        }
+
+        this._orderCheckNode = new Node('OrderCheckIcon');
+        const transform = this._orderCheckNode.addComponent(UITransform);
+        transform.setAnchorPoint(0.5, 0.5);
+        transform.setContentSize(Item.ORDER_CHECK_SIZE, Item.ORDER_CHECK_SIZE);
+
+        this._orderCheckSprite = this._orderCheckNode.addComponent(Sprite);
+        this._orderCheckSprite.sizeMode = Sprite.SizeMode.CUSTOM;
+        this._orderCheckSprite.type = Sprite.Type.SIMPLE;
+        if (Item.ORDER_CHECK_OPACITY < 255) {
+            this._orderCheckSprite.color = new Color(255, 255, 255, Item.ORDER_CHECK_OPACITY);
+        }
+
+        this._orderCheckNode.setPosition(Item.ORDER_CHECK_OFFSET_X, Item.ORDER_CHECK_OFFSET_Y, 0);
+        this._orderCheckNode.setParent(this.node);
+
+        this.loadOrderCheckIcon();
+    }
+
+    /**
+     * 加载订单对勾icon图片（静态缓存 + 子路径/主路径双重容错，复用 OrderCard 的 check_icon）
+     */
+    private loadOrderCheckIcon(): void {
+        if (!this._orderCheckSprite) {
+            return;
+        }
+        // 已缓存直接使用（所有 Item 共享，只加载一次）
+        if (Item._orderCheckSpriteFrame) {
+            this._orderCheckSprite.spriteFrame = Item._orderCheckSpriteFrame;
+            return;
+        }
+
+        const path = Item.ORDER_CHECK_ICON_PATH;
+        const tryLoad = (loadPath: string, onFail: () => void) => {
+            resources.load(loadPath, Texture2D, (err, texture) => {
+                if (err) {
+                    onFail();
+                    return;
+                }
+                if (texture) {
+                    const sf = new SpriteFrame();
+                    sf.texture = texture;
+                    Item._orderCheckSpriteFrame = sf;
+                    if (this._orderCheckSprite && this._orderCheckNode && this._orderCheckNode.isValid) {
+                        this._orderCheckSprite.spriteFrame = sf;
+                    }
+                }
+            });
+        };
+
+        tryLoad(`${path}/texture`, () => {
+            tryLoad(path, () => {
+                console.warn(`[Item] 订单对勾icon加载失败: ${path}，请将图片放入 assets/resources/textures/ui/check_icon.png`);
+            });
+        });
+    }
+
     // ==================== 选中特效 ====================
 
     /**
@@ -394,6 +570,7 @@ export class Item extends Component {
                 return sf;
             });
             this._selectedFrameIndex = 0;
+            this._selectedLastTime = 0;
             this._selectedEffectLoaded = true;
             if (this._selectedSprite && this._selectedEffectNode?.active) {
                 this._selectedSprite.spriteFrame = this._selectedFrames[0];
@@ -413,6 +590,7 @@ export class Item extends Component {
                 if (this._selectedEffectLoaded && this._selectedSprite && this._selectedFrames.length > 0) {
                     this._selectedSprite.spriteFrame = this._selectedFrames[0];
                     this._selectedFrameIndex = 0;
+                    this._selectedLastTime = 0;
                 }
             }
         } else {
@@ -461,30 +639,52 @@ export class Item extends Component {
 
     /**
      * 每帧更新：驱动星星和选中特效序列帧动画循环播放
+     * 使用 performance.now() 真实时间驱动，确保任何帧率(30/60/120/144)下动画速度一致
      */
     update(deltaTime: number): void {
+        const now = performance.now();
+        // 防止切换标签页/暂停后累积过多时间导致跳帧（最大补偿 200ms）
+        const MAX_ELAPSED = 0.2;
+
         // 发射器星星特效
         if (this._starEffectNode && this._starFrames.length > 0) {
-            this._starTimer += deltaTime;
-            const starInterval = 1.0 / Item.STAR_FPS;
-            if (this._starTimer >= starInterval) {
-                this._starTimer = 0;
+            if (this._starLastTime === 0) {
+                this._starLastTime = now;
+            }
+            const starInterval = 1000.0 / Item.STAR_FPS; // 毫秒
+            let elapsed = now - this._starLastTime;
+            if (elapsed > MAX_ELAPSED * 1000) {
+                elapsed = MAX_ELAPSED * 1000;
+                this._starLastTime = now - elapsed;
+            }
+            while (elapsed >= starInterval) {
+                elapsed -= starInterval;
+                this._starLastTime += starInterval;
                 this._starFrameIndex = (this._starFrameIndex + 1) % this._starFrames.length;
-                if (this._starSprite && this._starEffectNode.isValid) {
-                    this._starSprite.spriteFrame = this._starFrames[this._starFrameIndex];
-                }
+            }
+            if (this._starSprite && this._starEffectNode.isValid) {
+                this._starSprite.spriteFrame = this._starFrames[this._starFrameIndex];
             }
         }
+
         // 选中特效
         if (this._selectedEffectNode && this._selectedEffectNode.active && this._selectedFrames.length > 0) {
-            this._selectedTimer += deltaTime;
-            const selectedInterval = 1.0 / Item.SELECTED_FPS;
-            if (this._selectedTimer >= selectedInterval) {
-                this._selectedTimer = 0;
+            if (this._selectedLastTime === 0) {
+                this._selectedLastTime = now;
+            }
+            const selectedInterval = 1000.0 / Item.SELECTED_FPS; // 毫秒
+            let elapsed = now - this._selectedLastTime;
+            if (elapsed > MAX_ELAPSED * 1000) {
+                elapsed = MAX_ELAPSED * 1000;
+                this._selectedLastTime = now - elapsed;
+            }
+            while (elapsed >= selectedInterval) {
+                elapsed -= selectedInterval;
+                this._selectedLastTime += selectedInterval;
                 this._selectedFrameIndex = (this._selectedFrameIndex + 1) % this._selectedFrames.length;
-                if (this._selectedSprite && this._selectedEffectNode.isValid) {
-                    this._selectedSprite.spriteFrame = this._selectedFrames[this._selectedFrameIndex];
-                }
+            }
+            if (this._selectedSprite && this._selectedEffectNode.isValid) {
+                this._selectedSprite.spriteFrame = this._selectedFrames[this._selectedFrameIndex];
             }
         }
     }

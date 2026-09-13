@@ -50,6 +50,8 @@ export class AudioManager {
     private _sfxSource: AudioSource | null = null;
     private _clipCache: Map<string, AudioClip> = new Map();
     private _initialized = false;
+    private _bgmEnabled: boolean = true;
+    private _sfxEnabled: boolean = true;
 
     /**
      * 初始化音频管理器
@@ -205,5 +207,64 @@ export class AudioManager {
         if (this._sfxSource) {
             this._sfxSource.volume = Math.max(0, Math.min(1, volume));
         }
+    }
+
+    // ==================== 开关控制 ====================
+
+    /**
+     * 切换背景音乐开关
+     * @returns 切换后的状态（true=开启，false=关闭）
+     */
+    public toggleBGM(): boolean {
+        this._bgmEnabled = !this._bgmEnabled;
+        if (this._bgmEnabled) {
+            if (this._bgmSource) {
+                this._bgmSource.volume = AudioManager.BGM_VOLUME;
+                if (!this._bgmSource.playing) {
+                    this.playBGM();
+                }
+            }
+            console.log('[Audio] BGM 已开启');
+        } else {
+            if (this._bgmSource) {
+                this._bgmSource.volume = 0;
+            }
+            console.log('[Audio] BGM 已关闭');
+        }
+        return this._bgmEnabled;
+    }
+
+    /**
+     * 切换音效开关
+     * @returns 切换后的状态（true=开启，false=关闭）
+     */
+    public toggleSFX(): boolean {
+        this._sfxEnabled = !this._sfxEnabled;
+        if (this._sfxEnabled) {
+            if (this._sfxSource) {
+                this._sfxSource.volume = AudioManager.SFX_VOLUME;
+            }
+            console.log('[Audio] SFX 已开启');
+        } else {
+            if (this._sfxSource) {
+                this._sfxSource.volume = 0;
+            }
+            console.log('[Audio] SFX 已关闭');
+        }
+        return this._sfxEnabled;
+    }
+
+    /**
+     * 获取背景音乐开关状态
+     */
+    public isBGMEnabled(): boolean {
+        return this._bgmEnabled;
+    }
+
+    /**
+     * 获取音效开关状态
+     */
+    public isSFXEnabled(): boolean {
+        return this._sfxEnabled;
     }
 }
