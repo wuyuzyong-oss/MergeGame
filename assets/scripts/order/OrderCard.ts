@@ -2,6 +2,7 @@ import { Node, Label, UITransform, Graphics, Color, Sprite, SpriteFrame, Texture
 import { OrderData } from './OrderData';
 import { OrderItemReady, OrderStatus } from './OrderManager';
 import { AudioManager } from '../AudioManager';
+import { loadSequenceFrames, generatePrefixedNames } from '../core/SequenceFrameLoader';
 
 /**
  * 单个订单卡片
@@ -53,11 +54,11 @@ export class OrderCard {
     private static readonly CHECK_ICON_PATH = 'textures/ui/check_icon';
 
     /** 金币区域中心X（相对于卡片中心，正值=向右，负值=向左） */
-    private static readonly REWARD_X = 70;
+    private static readonly REWARD_X = 50;
     /** 金币区域中心Y（相对于卡片中心，正值=向上，负值=向下） */
     private static readonly REWARD_Y = 90;
     /** 半透明矩形底色宽度 */
-    private static readonly REWARD_WIDTH = 140;
+    private static readonly REWARD_WIDTH = 160;
     /** 半透明矩形底色高度 */
     private static readonly REWARD_HEIGHT = 45;
     /** 底色透明度（0=完全透明，255=完全不透明） */
@@ -101,6 +102,33 @@ export class OrderCard {
 
     /** 所有NPC的ID列表（7个，对应 textures/npc/ 下的7个文件夹） */
     public static readonly NPC_IDS: string[] = ['npc_01', 'npc_02', 'npc_03', 'npc_04', 'npc_05', 'npc_06', 'npc_07'];
+
+    /**
+     * 每个 NPC 的序列帧文件名规则
+     *
+     * 为什么需要这个表：
+     * Web Build 下 resources.loadDir(path, Texture2D) 返回的是子资源，所有 .name 都是 "texture"，
+     * 无法按文件名排序，帧顺序会被打乱。改为显式按文件名逐个加载子资源，
+     * 需要知道每个 NPC 的文件名前缀、起始编号、帧数。
+     *
+     * 数据来源于磁盘实际 PNG 文件（不包含 first.png）：
+     *   npc_01: dazhangwei-out1_7-1_00000 ~ 00137
+     *   npc_02: NPC1-NormalIdle5_002 (2)_00000 ~ 00160
+     *   npc_03: NPC2-NormalIdle1_000-2_00000 ~ 00160
+     *   npc_04: NPC3-NormalIdle1_0002_00000 ~ 00160
+     *   npc_05: pcl-NormalIdle1_0002_00001 ~ 00275  (注意从 1 开始)
+     *   npc_06: songdandan-out1_72_00000 ~ 00135
+     *   npc_07: zifeng-NormalIdle1_0002_00000 ~ 00291
+     */
+    private static readonly NPC_FRAME_CONFIG: Record<string, { prefix: string; start: number; count: number }> = {
+        'npc_01': { prefix: 'dazhangwei-out1_7-1_',   start: 0, count: 138 },
+        'npc_02': { prefix: 'NPC1-NormalIdle5_002 (2)_', start: 0, count: 161 },
+        'npc_03': { prefix: 'NPC2-NormalIdle1_000-2_', start: 0, count: 161 },
+        'npc_04': { prefix: 'NPC3-NormalIdle1_0002_',  start: 0, count: 161 },
+        'npc_05': { prefix: 'pcl-NormalIdle1_0002_',   start: 1, count: 275 },
+        'npc_06': { prefix: 'songdandan-out1_72_',     start: 0, count: 136 },
+        'npc_07': { prefix: 'zifeng-NormalIdle1_0002_', start: 0, count: 292 },
+    };
 
     /**
      * 后台预加载所有NPC的第一帧（游戏启动时调用，避免订单显示时才加载第一帧导致空白）
@@ -581,7 +609,7 @@ export class OrderCard {
     // ==================== NPC 序列帧动画 ====================
 
     /**
-     * 加载NPC序列帧（从 textures/npc/{npcId}/ 文件夹加载所有PNG，按文件名排序）
+     * 加载NPC序列帧（按 NPC_FRAME_CONFIG 里配置的文件名规则，显式逐个加载子资源）
      */
     private static loadNPCFrames(npcId: string, callback: (frames: SpriteFrame[]) => void): void {
         const cached = OrderCard._npcFramesCache.get(npcId);
@@ -590,22 +618,21 @@ export class OrderCard {
             return;
         }
 
+        const cfg = OrderCard.NPC_FRAME_CONFIG[npcId];
+        if (!cfg) {
+            console.warn(`[OrderCard] NPC ${npcId} 未在 NPC_FRAME_CONFIG 中配置，无法加载序列帧`);
+            callback([]);
+            return;
+        }
+
         const path = `textures/npc/${npcId}`;
-        resources.loadDir(path, Texture2D, (err, textures) => {
-            if (err || !textures || textures.length === 0) {
+        const names = generatePrefixedNames(cfg.prefix, cfg.start, cfg.count);
+        loadSequenceFrames(path, names, (frames) => {
+            if (frames.length === 0) {
                 console.warn(`[OrderCard] NPC frames not found: ${path}，请将PNG序列放入该文件夹`);
                 callback([]);
                 return;
             }
-            // 按文件名排序（01.png, 02.png, ...）
-            textures.sort((a, b) => a.name.localeCompare(b.name));
-            // 过滤掉 first.png（第一帧占位图，不参与动画播放）
-            const filteredTextures = textures.filter(t => t.name !== 'first');
-            const frames = filteredTextures.map(tex => {
-                const sf = new SpriteFrame();
-                sf.texture = tex;
-                return sf;
-            });
             OrderCard._npcFramesCache.set(npcId, frames);
             console.log(`[OrderCard] NPC ${npcId} loaded: ${frames.length} frames`);
             callback(frames);

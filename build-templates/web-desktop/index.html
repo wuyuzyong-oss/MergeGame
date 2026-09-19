@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+
+    <title>MergeGame</title>
+
+    <meta name="viewport" content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,minimal-ui=true"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="full-screen" content="yes"/>
+    <meta name="screen-orientation" content="portrait"/>
+    <meta name="x5-fullscreen" content="true"/>
+    <meta name="360-fullscreen" content="true"/>
+
+    <meta name="renderer" content="webkit"/>
+    <meta name="force-rendering" content="webkit"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+
+    <link rel="stylesheet" type="text/css" href="./style.css"/>
+    <link rel="icon" href="favicon.ico"/>
+    <style>
+      /*
+       * 画布默认 margin:0 auto 在全页宽居中，左右留等宽空白；
+       * 右侧空白被 GM 面板（fixed, right:10px, width:280px）占用，左侧等宽空白纯浪费。
+       * 这里把画布向左偏移"右侧 GM 预留宽度的一半"，使画布在去掉 GM 面板后的剩余区域内居中，
+       * 左边空白与"画布-GM 间隙"等宽、视觉平衡，同时收回约 290px 浪费空间。
+       * 同时在 Y 方向下移 30px，给画布顶部留一段边距，避免整个游戏紧贴浏览器顶部。
+       * 用 transform 纯视觉偏移，不影响 Cocos 对画布尺寸 / 触摸坐标的计算。
+       * 若以后改 GM 面板宽度，同步调整 X 偏移量 = (GM宽 + 右边距) / 2；
+       * 若以后改顶部留白，直接调整下面 translate 的第二个参数即可。
+       */
+      #GameDiv {
+        transform: translate(-145px, 30px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="GameDiv" cc_exact_fit_screen="false" style="width: 1080px; height: 1920px;">
+      <div id="Cocos3dGameContainer">
+        <canvas id="GameCanvas" width="1080" height="1920" tabindex="99"></canvas>
+      </div>
+    </div>
+    <!-- Polyfills bundle. -->
+
+<script src="src/polyfills.bundle.js" charset="utf-8"> </script>    
+
+
+<!-- SystemJS support. -->
+<script src="src/system.bundle.js" charset="utf-8"> </script>
+
+<!-- Import map -->
+<script src="src/import-map.json" type="systemjs-importmap" charset="utf-8"> </script>
+
+<script>
+    System.import('./index.js').catch(function(err) { console.error(err); })
+</script>
+  </body>
+</html>

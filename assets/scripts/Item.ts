@@ -6,6 +6,7 @@ import { getGameContext } from './core/GameContext';
 import { EventManager } from './core/EventManager';
 import { BoardManager } from './BoardManager';
 import { OrderManager } from './order/OrderManager';
+import { loadSequenceFrames, generateNumberedNames } from './core/SequenceFrameLoader';
 
 const { ccclass, property } = _decorator;
 
@@ -85,6 +86,8 @@ export class Item extends Component {
     // ==================== 发射器星星特效 ====================
     /** 发射器星星序列帧路径 */
     private static readonly STAR_EFFECT_PATH = 'textures/effect/generator_star';
+    /** 星星特效帧数（磁盘 PNG 数量，文件名 00000 ~ 00031） */
+    private static readonly STAR_FRAME_COUNT = 32;
     /** 星星特效帧率（FPS），越大播放越快 */
     private static readonly STAR_FPS = 12;
     /** 星星特效整体缩放 */
@@ -102,6 +105,8 @@ export class Item extends Component {
     // ==================== 选中特效 ====================
     /** 选中特效序列帧路径 */
     private static readonly SELECTED_EFFECT_PATH = 'textures/effect/item_selected';
+    /** 选中特效帧数（磁盘 PNG 数量，文件名 00000 ~ 00031） */
+    private static readonly SELECTED_FRAME_COUNT = 32;
     /** 选中特效帧率（FPS） */
     private static readonly SELECTED_FPS = 15;
     /** 选中特效显示大小（像素），直接控制，不随格子大小变化 */
@@ -334,19 +339,14 @@ export class Item extends Component {
         this._starEffectNode.setPosition(0, Item.STAR_OFFSET_Y, 0);
         this._starEffectNode.setParent(this.node);
 
-        // 加载序列帧（用 Texture2D 加载，兼容图片导入类型为 texture 的情况）
-        resources.loadDir(Item.STAR_EFFECT_PATH, Texture2D, (err, textures) => {
-            if (err || !textures || textures.length === 0) {
+        // 加载序列帧：显式按文件名 00000~00031 逐个加载子资源，保证顺序（Web Build 下 loadDir 返回的 name 全是 "texture"，排序会失效）
+        const starNames = generateNumberedNames(0, Item.STAR_FRAME_COUNT);
+        loadSequenceFrames(Item.STAR_EFFECT_PATH, starNames, (frames) => {
+            if (frames.length === 0) {
                 console.warn(`[Item] 发射器星星序列帧加载失败: ${Item.STAR_EFFECT_PATH}，请将PNG序列放入该目录`);
                 return;
             }
-            // 按文件名排序
-            textures.sort((a, b) => a.name.localeCompare(b.name));
-            this._starFrames = textures.map(tex => {
-                const sf = new SpriteFrame();
-                sf.texture = tex;
-                return sf;
-            });
+            this._starFrames = frames;
             this._starFrameIndex = 0;
             this._starLastTime = 0;
             if (this._starSprite) {
@@ -557,18 +557,14 @@ export class Item extends Component {
         this._selectedEffectNode.setParent(this.node);
         this._selectedEffectNode.active = false;
 
-        // 加载序列帧
-        resources.loadDir(Item.SELECTED_EFFECT_PATH, Texture2D, (err, textures) => {
-            if (err || !textures || textures.length === 0) {
+        // 加载序列帧：显式按文件名 00000~00031 逐个加载子资源，保证顺序
+        const selectedNames = generateNumberedNames(0, Item.SELECTED_FRAME_COUNT);
+        loadSequenceFrames(Item.SELECTED_EFFECT_PATH, selectedNames, (frames) => {
+            if (frames.length === 0) {
                 console.warn(`[Item] 选中特效序列帧加载失败: ${Item.SELECTED_EFFECT_PATH}`);
                 return;
             }
-            textures.sort((a, b) => a.name.localeCompare(b.name));
-            this._selectedFrames = textures.map(tex => {
-                const sf = new SpriteFrame();
-                sf.texture = tex;
-                return sf;
-            });
+            this._selectedFrames = frames;
             this._selectedFrameIndex = 0;
             this._selectedLastTime = 0;
             this._selectedEffectLoaded = true;

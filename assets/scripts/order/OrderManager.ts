@@ -65,6 +65,19 @@ export class OrderManager {
     }
 
     /**
+     * 清理所有当前订单并重新生成一批新订单（GM 调试用）
+     *
+     * 与 init() 不同：不重复绑定事件，仅重建订单数据，并派发 ORDER_CHANGED 通知
+     * 游戏内订单面板 / GM 订单列表 / 物品对勾图标刷新。
+     * @param count 重新生成的订单数量，默认 5
+     */
+    public regenerateAllOrders(count: number = 5): void {
+        this.generateCurrentOrders(count);
+        EventManager.instance.emit(EventManager.ORDER_CHANGED);
+        console.log('[OrderManager] 已清理并重新生成订单:', this._currentOrders.map(o => o.id));
+    }
+
+    /**
      * 获取当前订单列表
      */
     public getCurrentOrders(): OrderData[] {

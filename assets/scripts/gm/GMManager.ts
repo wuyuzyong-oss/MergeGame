@@ -46,6 +46,15 @@ export class GMManager extends Component {
     /** 订单完成模式：true=自动（物品齐全自动完成），false=手动（物品齐全即停，人工点完成） */
     private _autoComplete: boolean = true;
 
+    /** 发射器出货模式：true=锁定线路（100% 出目标线路），false=原始比例（按配置权重随机） */
+    private _forceChainOutput: boolean = true;
+
+    /** 全自动模式：true=自动连续完成订单（完成一个接着完成下一个），false=半自动（手动点击每个订单的一键完成） */
+    private _fullAuto: boolean = false;
+
+    /** 全自动循环是否正在运行（防止重复启动） */
+    private _fullAutoRunning: boolean = false;
+
     /** 订单变化事件回调引用（用于解绑） */
     private _boundOnOrderChanged: (() => void) | null = null;
 
@@ -55,10 +64,15 @@ export class GMManager extends Component {
     /** 日志最大保留条数 */
     private static readonly MAX_LOG_ENTRIES = 60;
 
+    /** 全自动模式下，完成一个订单到开始下一个订单之间的间隔（毫秒），留时间给动画与订单补充稳定 */
+    private static readonly FULL_AUTO_STEP_DELAY = 600;
+
     onLoad(): void {
         this.createPanel();
         this.bindKeyboard();
         this.bindOrderEvents();
+        // 同步出货模式开关到编排器（保证面板初始值与实际行为一致）
+        GMOrderCompleter.forceChainOutput = this._forceChainOutput;
         console.log('[GMManager] GM面板已创建，按 F1 显示/隐藏');
     }
 
@@ -341,6 +355,25 @@ export class GMManager extends Component {
 
         section.appendChild(clearBtn);
 
+        // 清理并重新生成订单按钮
+        const regenOrderBtn = document.createElement('button');
+        regenOrderBtn.textContent = '重新生成订单';
+        regenOrderBtn.style.cssText = `
+            width: 100%;
+            margin-top: 6px;
+            background: #e67e22;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        `;
+        regenOrderBtn.onclick = () => this.clearAndRegenerateOrders();
+
+        section.appendChild(regenOrderBtn);
+
         // 刷新物品数量
         this.refreshItemCount();
 
@@ -396,6 +429,20 @@ export class GMManager extends Component {
             this.refreshItemCount();
         } catch (e) {
             console.error(`[GMManager] 清空失败: ${e}`);
+        }
+    }
+
+    /**
+     * 清理所有订单并重新生成一批新订单
+     * 重新生成后 OrderManager 会派发 ORDER_CHANGED，订单列表自动刷新，无需手动 refreshOrderList
+     */
+    private clearAndRegenerateOrders(): void {
+        try {
+            OrderManager.instance.regenerateAllOrders();
+            this.appendLog('已清理所有订单并重新生成', 'info');
+        } catch (e) {
+            this.appendLog(`重新生成订单失败: ${e}`, 'error');
+            console.error(`[GMManager] 重新生成订单失败: ${e}`, e);
         }
     }
 
@@ -476,8 +523,50 @@ export class GMManager extends Component {
         this.updateOrderModeButton(modeBtn);
         modeBtn.onclick = () => this.toggleOrderMode();
 
+        // 出货模式切换按钮（锁定线路：100% 出目标线路；原始比例：按配置权重随机）
+        const forceBtn = document.createElement('button');
+        forceBtn.id = 'gm-force-chain';
+        forceBtn.style.cssText = `
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        `;
+        this.updateForceChainButton(forceBtn);
+        forceBtn.onclick = () => this.toggleForceChain();
+
+        // 全自动/半自动切换按钮（全自动：自动连续完成订单；半自动：手动点击每个订单的一键完成）
+        const fullAutoBtn = document.createElement('button');
+        fullAutoBtn.id = 'gm-full-auto';
+        fullAutoBtn.style.cssText = `
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        `;
+        this.updateFullAutoButton(fullAutoBtn);
+        fullAutoBtn.onclick = () => this.toggleFullAuto();
+
+        // 三个开关按钮并排放在标题右侧
+        const btnGroup = document.createElement('div');
+        btnGroup.style.cssText = `
+            display: flex;
+            gap: 6px;
+        `;
+        btnGroup.appendChild(modeBtn);
+        btnGroup.appendChild(forceBtn);
+        btnGroup.appendChild(fullAutoBtn);
+
         titleRow.appendChild(title);
-        titleRow.appendChild(modeBtn);
+        titleRow.appendChild(btnGroup);
         section.appendChild(titleRow);
 
         // 订单列表容器
@@ -587,16 +676,17 @@ export class GMManager extends Component {
         // 右侧：一键完成按钮
         const btn = document.createElement('button');
         const isCompleting = this._completingOrderId === order.id;
-        const anyCompleting = this._completingOrderId !== null;
-        btn.textContent = isCompleting ? '完成中...' : '一键完成';
-        btn.disabled = anyCompleting;
+        // 全自动运行中或有订单在完成中时，禁用手动「一键完成」按钮（全自动由循环驱动）
+        const busy = this._completingOrderId !== null || this._fullAuto;
+        btn.textContent = isCompleting ? '完成中...' : (this._fullAuto ? '全自动中' : '一键完成');
+        btn.disabled = busy;
         btn.style.cssText = `
-            background: ${anyCompleting ? '#666666' : '#4CAF50'};
+            background: ${busy ? '#666666' : '#4CAF50'};
             color: #fff;
             border: none;
             border-radius: 4px;
             padding: 6px 10px;
-            cursor: ${anyCompleting ? 'not-allowed' : 'pointer'};
+            cursor: ${busy ? 'not-allowed' : 'pointer'};
             font-size: 12px;
             font-weight: bold;
             white-space: nowrap;
@@ -612,6 +702,9 @@ export class GMManager extends Component {
      * 点击「一键完成」按钮：加锁 → 调用编排器 → 完成后解锁并刷新
      */
     private onCompleteOrderClick(orderId: string, orderNo: number): void {
+        if (this._fullAuto) {
+            return; // 全自动模式下由循环自动驱动，忽略手动点击
+        }
         if (this._completingOrderId) {
             return; // 已有订单在完成中，忽略
         }
@@ -619,7 +712,7 @@ export class GMManager extends Component {
         // 立即刷新，显示「完成中...」并禁用所有按钮
         this.refreshOrderList();
 
-        this.appendLog(`开始一键完成 订单${orderNo}（${this._autoComplete ? '自动' : '手动'}模式）`, 'info');
+        this.appendLog(`开始一键完成 订单${orderNo}（${this._autoComplete ? '自动' : '手动'}模式 / ${this._forceChainOutput ? '锁定线路' : '原始比例'}）`, 'info');
 
         GMOrderCompleter.completeOrder(orderId, this._autoComplete, (success, message) => {
             this._completingOrderId = null;
@@ -650,6 +743,134 @@ export class GMManager extends Component {
     private updateOrderModeButton(btn: HTMLButtonElement): void {
         btn.textContent = this._autoComplete ? '完成: 自动' : '完成: 手动';
         btn.style.background = this._autoComplete ? '#4CAF50' : '#ff9800';
+    }
+
+    /**
+     * 切换发射器出货模式（锁定线路 ↔ 原始比例）
+     */
+    private toggleForceChain(): void {
+        this._forceChainOutput = !this._forceChainOutput;
+        GMOrderCompleter.forceChainOutput = this._forceChainOutput;
+        const btn = document.getElementById('gm-force-chain') as HTMLButtonElement;
+        if (btn) {
+            this.updateForceChainButton(btn);
+        }
+        console.log(`[GMManager] 发射器出货模式 -> ${this._forceChainOutput ? '锁定线路' : '原始比例'}`);
+    }
+
+    /**
+     * 更新出货模式按钮的文字与颜色
+     */
+    private updateForceChainButton(btn: HTMLButtonElement): void {
+        btn.textContent = this._forceChainOutput ? '出货: 锁定' : '出货: 比例';
+        btn.style.background = this._forceChainOutput ? '#2196F3' : '#9E9E9E';
+    }
+
+    /**
+     * 切换全自动 / 半自动模式
+     * 全自动：GM 自动连续完成订单（完成一个接着完成下一个）
+     * 半自动：恢复当前模式，手动点击每个订单的「一键完成」
+     */
+    private toggleFullAuto(): void {
+        this._fullAuto = !this._fullAuto;
+        const btn = document.getElementById('gm-full-auto') as HTMLButtonElement;
+        if (btn) {
+            this.updateFullAutoButton(btn);
+        }
+        // 刷新订单列表，让手动按钮在两种模式间正确显示启用/禁用态
+        this.refreshOrderList();
+
+        if (this._fullAuto) {
+            this.appendLog('全自动模式已开启：将连续自动完成订单（固定使用自动完成，完成一个接着下一个）', 'info');
+            this.startFullAutoLoop();
+        } else {
+            this.appendLog('全自动模式已关闭：恢复手动点击一键完成', 'info');
+            this.stopFullAutoLoop();
+        }
+        console.log(`[GMManager] 全自动模式 -> ${this._fullAuto ? '开' : '关'}`);
+    }
+
+    /**
+     * 更新全自动按钮的文字与颜色
+     */
+    private updateFullAutoButton(btn: HTMLButtonElement): void {
+        btn.textContent = this._fullAuto ? '全自动: 开' : '全自动: 关';
+        btn.style.background = this._fullAuto ? '#9C27B0' : '#607D8B';
+    }
+
+    /**
+     * 启动全自动循环（已在运行则忽略）
+     */
+    private startFullAutoLoop(): void {
+        if (this._fullAutoRunning) {
+            return;
+        }
+        this._fullAutoRunning = true;
+        this.runFullAutoStep();
+    }
+
+    /**
+     * 停止全自动循环（正在完成的那个订单会自然结束，但不再继续下一个）
+     */
+    private stopFullAutoLoop(): void {
+        this._fullAutoRunning = false;
+    }
+
+    /**
+     * 全自动循环单步：取当前第一个订单并完成，成功回调后延迟处理下一个。
+     *
+     * 依赖 GMOrderCompleter.completeOrder 的回调——该回调在订单真正完成并从 _currentOrders 移除后
+     * （经 ORDER_CHANGED 校验）才触发，符合「发射后不管」动画链的异步时序要求，不会抢跑。
+     * 失败（体力不足 / 棋盘已满 / 超时等）时停止循环，避免无限失败重试。
+     */
+    private runFullAutoStep(): void {
+        // 已关闭全自动：停止
+        if (!this._fullAuto) {
+            this._fullAutoRunning = false;
+            return;
+        }
+        // 有订单正在完成中（刚切换或手动触发残留），稍后重试
+        if (this._completingOrderId) {
+            setTimeout(() => this.runFullAutoStep(), GMManager.FULL_AUTO_STEP_DELAY);
+            return;
+        }
+        // 游戏上下文未就绪守卫
+        if (!GameManager.instance?.boardManager) {
+            this.appendLog('全自动：游戏上下文未就绪，已停止', 'error');
+            this._fullAutoRunning = false;
+            return;
+        }
+        // 取当前第一个订单
+        const orders = OrderManager.instance.getCurrentOrders();
+        if (orders.length === 0) {
+            this.appendLog('全自动：当前无订单，已停止', 'warn');
+            this._fullAutoRunning = false;
+            return;
+        }
+        const order = orders[0];
+
+        // 加锁并刷新（手动按钮显示为禁用/全自动中）
+        this._completingOrderId = order.id;
+        this.refreshOrderList();
+        this.appendLog(`全自动：开始完成订单（${order.id}）`, 'info');
+
+        // 全自动必须真正完成订单才能继续下一个，因此固定 autoComplete=true（否则会停在“物品已备齐”造成死循环）
+        GMOrderCompleter.completeOrder(order.id, true, (success, message) => {
+            this._completingOrderId = null;
+            this.refreshOrderList();
+            // 期间被关闭：停止，不再继续
+            if (!this._fullAuto) {
+                this._fullAutoRunning = false;
+                return;
+            }
+            if (success) {
+                this.appendLog(`全自动：订单已完成（${message || 'ok'}），${GMManager.FULL_AUTO_STEP_DELAY}ms 后处理下一个`, 'info');
+                setTimeout(() => this.runFullAutoStep(), GMManager.FULL_AUTO_STEP_DELAY);
+            } else {
+                this.appendLog(`全自动：订单完成失败，已停止循环（${message}）`, 'error');
+                this._fullAutoRunning = false;
+            }
+        });
     }
 
     /**

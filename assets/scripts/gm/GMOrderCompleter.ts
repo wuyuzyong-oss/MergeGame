@@ -56,6 +56,13 @@ export class GMOrderCompleter {
     // ==================== 对外主入口 ====================
 
     /**
+     * 发射器出货模式开关（GM 面板可切换）
+     * true  = 锁定线路：发射时强制只产出目标 chainId 线路的物品（100% 出目标线路，默认）
+     * false = 原始比例：发射时按 generators.json 配置的原始权重随机出货（可能出非目标线路）
+     */
+    public static forceChainOutput: boolean = true;
+
+    /**
      * 一键完成指定订单
      *
      * @param orderId      订单 ID
@@ -91,6 +98,9 @@ export class GMOrderCompleter {
 
         // 依次生产每个需求物品，全部就绪后按模式处理
         GMOrderCompleter.produceTargetsSequentially(targets, 0, boardManager, (success, message) => {
+            // 无论成功失败，倍率固定恢复为 x2
+            GameManager.instance?.setMultiplier(2);
+
             if (!success) {
                 callback(false, message);
                 return;
@@ -189,8 +199,9 @@ export class GMOrderCompleter {
             return;
         }
 
-        // 5. 无可合成对，锁定线路发射一个物品
-        GMSimulator.simulateFire(generatorNode, target.chainId, fired => {
+        // 5. 无可合成对，发射一个物品（按开关决定锁定线路还是原始比例）
+        const forceChain = GMOrderCompleter.forceChainOutput ? target.chainId : null;
+        GMSimulator.simulateFire(generatorNode, forceChain, fired => {
             if (!fired) {
                 callback(false, '发射失败（体力不足或棋盘已满）');
                 return;

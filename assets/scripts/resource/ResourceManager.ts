@@ -34,7 +34,7 @@ export class ResourceManager {
     // ========== 体力 ==========
 
     public addEnergy(amount: number): void {
-        PlayerData.instance.energy = Math.min(PlayerData.instance.energy + amount, PlayerData.instance.maxEnergy);
+        PlayerData.instance.energy = PlayerData.instance.energy + amount;
         console.log(`[Resource] Energy +${amount}, total: ${PlayerData.instance.energy}`);
         EventManager.instance.emit(EventManager.ENERGY_CHANGED, PlayerData.instance.energy);
     }
@@ -70,10 +70,10 @@ export class ResourceManager {
     }
 
     /**
-     * 直接设置体力数量（不超过上限）
+     * 直接设置体力数量
      */
     public setEnergy(amount: number): void {
-        PlayerData.instance.energy = Math.max(0, Math.min(Math.floor(amount), PlayerData.instance.maxEnergy));
+        PlayerData.instance.energy = Math.max(0, Math.floor(amount));
         console.log(`[Resource] Energy set to ${PlayerData.instance.energy}`);
         EventManager.instance.emit(EventManager.ENERGY_CHANGED, PlayerData.instance.energy);
     }

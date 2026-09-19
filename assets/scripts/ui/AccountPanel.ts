@@ -2,6 +2,7 @@ import { _decorator, Component, Node, UITransform, Graphics, Color, Sprite, Spri
 import { EventManager } from '../core/EventManager';
 import { PlayerData } from '../PlayerData';
 import { MultiplierButton } from '../MultiplierButton';
+import { loadSequenceFrames, generateNumberedNames } from '../core/SequenceFrameLoader';
 
 const { ccclass, property } = _decorator;
 
@@ -50,7 +51,7 @@ export class AccountPanel extends Component {
     private static readonly ICON_NUMBER_GAP = -30;
 
     /** 数字背景宽度 */
-    private static readonly NUMBER_BG_WIDTH = 140;
+    private static readonly NUMBER_BG_WIDTH = 150;
     /** 数字背景高度 */
     private static readonly NUMBER_BG_HEIGHT = 46;
     /** 数字背景圆角半径 */
@@ -62,7 +63,7 @@ export class AccountPanel extends Component {
     /** 数字背景边框宽度 */
     private static readonly NUMBER_BG_BORDER_WIDTH = 2;
     /** 数字字体大小 */
-    private static readonly NUMBER_FONT_SIZE = 30;
+    private static readonly NUMBER_FONT_SIZE = 28;
     /** 数字在底色中的X偏移（正数=向右，因为左边被icon压住，数字需要右移） */
     private static readonly NUMBER_LABEL_OFFSET_X = 10;
     /** 数字字体颜色 */
@@ -73,7 +74,7 @@ export class AccountPanel extends Component {
     /** 第一个资源项（体力）的X位置 */
     private static readonly FIRST_ITEM_X = -250;
     /** 每个资源项之间的间距 */
-    private static readonly ITEM_SPACING = 180;
+    private static readonly ITEM_SPACING = 190;
 
     /** 倍率按钮X位置 */
     private static readonly MULTIPLIER_X = 430;
@@ -83,6 +84,8 @@ export class AccountPanel extends Component {
     // ==================== 金币爆发特效常量 ====================
     /** 金币爆发序列帧路径 */
     private static readonly COIN_BURST_PATH = 'textures/effect/coin_burst';
+    /** 金币爆发帧数（磁盘 PNG 数量，文件名 00000 ~ 00018） */
+    private static readonly COIN_BURST_FRAME_COUNT = 19;
     /** 爆发动画帧率（FPS） */
     private static readonly BURST_FPS = 16;
     /** 爆发特效整体缩放 */
@@ -164,20 +167,14 @@ export class AccountPanel extends Component {
 
         // 透明PNG用默认混合模式，不需要额外设置
 
-        // 加载序列帧（用 Texture2D 加载，兼容图片导入类型为 texture 的情况），顺序播放完整一次，播完销毁
-        resources.loadDir(AccountPanel.COIN_BURST_PATH, Texture2D, (err, textures) => {
-            if (err || !textures || textures.length === 0) {
+        // 加载序列帧：显式按文件名 00000~00018 逐个加载子资源，保证顺序（Web Build 下 loadDir 排序会失效），顺序播放完整一次，播完销毁
+        const names = generateNumberedNames(0, AccountPanel.COIN_BURST_FRAME_COUNT);
+        loadSequenceFrames(AccountPanel.COIN_BURST_PATH, names, (frames) => {
+            if (frames.length === 0) {
                 console.warn(`[AccountPanel] 金币爆发序列帧加载失败: ${AccountPanel.COIN_BURST_PATH}，请将PNG序列放入该目录`);
                 if (burstNode.isValid) burstNode.destroy();
                 return;
             }
-            // 按文件名排序
-            textures.sort((a, b) => a.name.localeCompare(b.name));
-            const frames = textures.map(tex => {
-                const sf = new SpriteFrame();
-                sf.texture = tex;
-                return sf;
-            });
 
             let frameIndex = 0;
             const totalFrames = frames.length;

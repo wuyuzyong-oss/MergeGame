@@ -1,4 +1,4 @@
-import { Vec3, Node, Prefab, instantiate, tween, Sprite, SpriteFrame, Texture2D, resources, UITransform } from 'cc';
+import { Vec3, Node, Prefab, instantiate, tween, Sprite, SpriteFrame, UITransform } from 'cc';
 import { BoardManager } from './BoardManager';
 import { Cell } from './Cell';
 import { ItemData } from './ItemData';
@@ -7,6 +7,7 @@ import { MergeManager } from './MergeManager';
 import { GeneratorManager } from './GeneratorManager';
 import { EventManager } from './core/EventManager';
 import { AudioManager } from './AudioManager';
+import { loadSequenceFrames, generateNumberedNames } from './core/SequenceFrameLoader';
 // 注意：不 import GameManager，避免循环依赖
 // BoardManager 通过 init() 传入
 
@@ -30,10 +31,18 @@ export class ItemManager {
     // ==================== 合成爆炸特效 ====================
     /** 合成爆炸序列帧路径 */
     private static readonly MERGE_EXPLOSION_PATH = 'textures/effect/merge_explosion';
+    /** 合成爆炸帧数（磁盘 PNG 数量，文件名 00000 ~ 00022） */
+    private static readonly MERGE_EXPLOSION_FRAME_COUNT = 23;
     /** 合成爆炸特效帧率（FPS） */
     private static readonly MERGE_EXPLOSION_FPS = 20;
     /** 合成爆炸特效显示大小（像素） */
     private static readonly MERGE_EXPLOSION_SIZE = 350;
+
+    // ==================== 发射器飞行动画 ====================
+    /** 发射器出物品的飞行时长（秒） */
+    private static readonly FIRE_FLY_DURATION = 0.18;
+    /** 飞行期间的 Z 轴抬升（与 Item.dragZOffset 一致，保证飞行中不被其他物品遮挡） */
+    private static readonly FIRE_FLY_Z = 10;
 
     /** 合成爆炸序列帧缓存（静态，所有 ItemManager 共享） */
     private static _mergeExplosionFrames: SpriteFrame[] | null = null;
@@ -102,11 +111,11 @@ export class ItemManager {
      * 取消选中
      */
     public deselectItem(): void {
-        if (this._selectedItem) {
+        if (this._selectedItem && this._selectedItem.isValid) {
             const comp = this.getItemComponent(this._selectedItem);
             comp?.setSelected(false);
-            this._selectedItem = null;
         }
+        this._selectedItem = null;
     }
 
     /**
@@ -147,6 +156,9 @@ export class ItemManager {
             console.error('[ItemManager] Failed to spawn generator output');
             return false;
         }
+
+        // 飞行动画：物品从发射器位置出现并飞向目标格（数据已在目标格注册，此处仅处理视觉）
+        this.animateFireFly(node, itemNode, result.targetCol, result.targetRow);
 
         console.log(`[Generator] Spawn: ${result.outputItemData.itemId} at Cell(${result.targetCol},${result.targetRow})`);
 
@@ -242,6 +254,41 @@ export class ItemManager {
 
         EventManager.instance.emit(EventManager.ITEM_SPAWNED, itemData);
         return node;
+    }
+
+    /**
+     * 发射器飞行动画：物品从发射器位置出现，飞向目标格子
+     *
+     * 棋盘数据已由 spawnItemWithData 注册在目标格，这里只处理视觉飞行：
+     * 起点 = 发射器当前本地坐标（同父节点可直接用），Z 轴抬升防遮挡，
+     * tween 飞向目标格本地坐标（Z 轴同步回落到 0）。
+     *
+     * @param node          已生成在目标格的物品节点
+     * @param generatorNode 发射器物品节点（飞行起点）
+     * @param targetCol     目标列
+     * @param targetRow     目标行
+     */
+    private animateFireFly(node: Node, generatorNode: Node, targetCol: number, targetRow: number): void {
+        const boardManager = this._boardManager;
+        if (!boardManager || !this._boardRoot) return;
+
+        const targetWorldPos = boardManager.getCellWorldPos(targetCol, targetRow);
+        if (!targetWorldPos) return;
+        const targetLocal = this.worldToLocal(targetWorldPos);
+
+        // 起点摆到发射器位置，抬升 Z 轴并置顶，避免飞行中被其他物品盖住
+        const startPos = generatorNode.position;
+        node.setPosition(startPos.x, startPos.y, ItemManager.FIRE_FLY_Z);
+        node.setSiblingIndex(this._boardRoot.children.length - 1);
+
+        tween(node)
+            .to(ItemManager.FIRE_FLY_DURATION, { position: targetLocal }, { easing: 'quadOut' })
+            .call(() => {
+                if (!node.isValid) return;
+                // 落定：Z 轴归位，确保最终精确停在目标格
+                node.setPosition(targetLocal.x, targetLocal.y, 0);
+            })
+            .start();
     }
 
     /**
@@ -480,21 +527,16 @@ export class ItemManager {
             }, interval);
         };
 
-        // 已有缓存直接播放，否则加载并缓存
+        // 已有缓存直接播放，否则按文件名逐个加载子资源（Web Build 下 loadDir 排序会失效）
         if (ItemManager._mergeExplosionFrames) {
             playWithFrames(ItemManager._mergeExplosionFrames);
         } else {
-            resources.loadDir(ItemManager.MERGE_EXPLOSION_PATH, Texture2D, (err, textures) => {
-                if (err || !textures || textures.length === 0) {
+            const names = generateNumberedNames(0, ItemManager.MERGE_EXPLOSION_FRAME_COUNT);
+            loadSequenceFrames(ItemManager.MERGE_EXPLOSION_PATH, names, (frames) => {
+                if (frames.length === 0) {
                     console.warn(`[ItemManager] 合成爆炸序列帧加载失败: ${ItemManager.MERGE_EXPLOSION_PATH}`);
                     return;
                 }
-                textures.sort((a, b) => a.name.localeCompare(b.name));
-                const frames = textures.map(tex => {
-                    const sf = new SpriteFrame();
-                    sf.texture = tex;
-                    return sf;
-                });
                 ItemManager._mergeExplosionFrames = frames;
                 console.log(`[ItemManager] 合成爆炸序列帧加载成功: ${frames.length} 帧`);
                 playWithFrames(frames);
@@ -687,4 +729,5 @@ export class ItemManager {
  */
 interface ItemComponentLike {
     data: ItemData | null;
+    setSelected(selected: boolean): void;
 }
